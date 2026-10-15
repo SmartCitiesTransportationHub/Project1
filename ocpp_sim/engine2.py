@@ -73,7 +73,7 @@ async def run_scenario(attack,defense,seed=0,with_attack=True,t0_attack=T0):
 
     active={}                      # site -> (t1, pkw) for current session
     started=set()                  # session indices started
-    curtail_start={}; aborted=set()
+    curtail_start={}; tamper_start={}; aborted=set(); TF=2.2; TARIFF=0.30
     power_now={s:0.0 for s in SITES}
     cmd_log=[]; obs_series=[]; ctrl_mw_series=[]
     t_detect=None; recovery=None; attack_stopped=[False]
@@ -96,17 +96,20 @@ async def run_scenario(attack,defense,seed=0,with_attack=True,t0_attack=T0):
                 calls.append(send(s["site"],call.Authorize(id_tag=f"R{rng.randint(1000,9999)}")))
                 calls.append(send(s["site"],call.StartTransaction(connector_id=1,id_tag="R",meter_start=0,timestamp=now_iso())))
         # update power_now (0 if curtailed)
+        report_now={}
         for site in SITES:
             act=[a for a in active.get(site,[]) if a[0]>T]
             active[site]=act
-            cur = site in curtail_start and (recovery is None or curtail_start[site]<=T<recovery or (recovery and T<recovery))
-            cur = site in curtail_start and (recovery is None or T<recovery)
-            power_now[site]=0.0 if cur else sum(a[1] for a in act)
+            base=sum(a[1] for a in act)
+            cut = site in curtail_start and (recovery is None or T<recovery)
+            tmp = site in tamper_start and (recovery is None or T<recovery)
+            power_now[site]=0.0 if cut else base                       # actual delivered
+            report_now[site]=0.0 if cut else (base*TF if tmp else base)# what CSMS sees (MeterValues)
         # periodic MeterValues (light, real messages)
         if (T-W0)%MV_EVERY==0:
             for site in SITES:
                 if active.get(site):
-                    calls.append(send(site,call.MeterValues(connector_id=1,meter_value=[{"timestamp":now_iso(),"sampled_value":[{"value":str(round(power_now[site],2)),"measurand":"Power.Active.Import"}]}])))
+                    calls.append(send(site,call.MeterValues(connector_id=1,meter_value=[{"timestamp":now_iso(),"sampled_value":[{"value":str(round(report_now[site],2)),"measurand":"Power.Active.Import"}]}])))
         # attacker
         if with_attack and T>=t0_attack and not attack_stopped[0]:
             budget = rl if rl is not None else rate
@@ -115,19 +118,26 @@ async def run_scenario(attack,defense,seed=0,with_attack=True,t0_attack=T0):
                 site=FANOUT[fan_idx]; fan_idx+=1
                 if site in cmap:
                     prof={"charging_profile_id":1,"stack_level":0,"charging_profile_purpose":"TxDefaultProfile","charging_profile_kind":"Absolute","charging_schedule":{"charging_rate_unit":"W","charging_schedule_period":[{"start_period":0,"limit":0.0}]}}
-                    if mode=="remote_stop": calls.append(cmap[site].call(call.RemoteStopTransaction(transaction_id=1))); aborted.add(site)
-                    else: calls.append(cmap[site].call(call.SetChargingProfile(connector_id=0,cs_charging_profiles=prof)))
-                    curtail_start.setdefault(site,T); cmd_log.append(T); n+=1
+                    if mode=="mitm_meter":
+                        tamper_start.setdefault(site,T); n+=1          # link MitM: no CSMS command -> no rate burst
+                    elif mode=="remote_stop":
+                        calls.append(cmap[site].call(call.RemoteStopTransaction(transaction_id=1))); aborted.add(site)
+                        curtail_start.setdefault(site,T); cmd_log.append(T); n+=1
+                    elif mode=="dos":
+                        curtail_start.setdefault(site,T); cmd_log.append(T); n+=1   # flood -> offline + connection-rate spike
+                    else:
+                        calls.append(cmap[site].call(call.SetChargingProfile(connector_id=0,cs_charging_profiles=prof)))
+                        curtail_start.setdefault(site,T); cmd_log.append(T); n+=1
         if calls: await asyncio.gather(*calls,return_exceptions=True)
         # observed & detector
-        obs=sum(power_now.values()); obs_series.append((T,obs))
+        obs=sum(report_now.values()); obs_series.append((T,obs))
         ctrl=sum(sum(a[1] for a in active.get(st,[])) for st in curtail_start if (recovery is None or T<recovery))
         ctrl_mw_series.append((T,ctrl/1000.0))
         exp=EXP.get(T,0.0)
         rate_cnt=sum(1 for c in cmd_log if T-120<=c<=T)
         alarm=False
         if rate_cnt>=5: alarm=True                       # command-rate burst
-        if exp>5 and obs<0.5*exp: kcons+=1               # scale*rhythm consistency
+        if exp>5 and (obs<0.5*exp or obs>1.5*exp): kcons+=1   # scale*rhythm consistency: low=curtail/dos, high=meter tamper
         else: kcons=0
         if kcons>=2: alarm=True
         if alarm and t_detect is None and T>=t0_attack:
@@ -135,19 +145,26 @@ async def run_scenario(attack,defense,seed=0,with_attack=True,t0_attack=T0):
             if defense.get("isolate"):
                 recovery=T+60; attack_stopped[0]=True
     rec=recovery if recovery else W1
-    dE=0.0; denied=0
+    dE=0.0; denied=0; billing=0.0
     for s in sess:
         cs=curtail_start.get(s["site"])
-        if cs is None: continue
-        ov=max(0,min(s["t1"],W1,rec)-max(s["t0"],W0,cs))
-        if ov>0: dE+=s["pkw"]*ov/3600.0; denied+=1
+        if cs is not None:
+            ov=max(0,min(s["t1"],W1,rec)-max(s["t0"],W0,cs))
+            if ov>0: dE+=s["pkw"]*ov/3600.0; denied+=1
+        ts=tamper_start.get(s["site"])
+        if ts is not None:
+            ov=max(0,min(s["t1"],W1,rec)-max(s["t0"],W0,ts))
+            if ov>0: billing+=s["pkw"]*ov/3600.0*(TF-1)*TARIFF
+    affected=sorted(set(curtail_start)|set(tamper_start))
     peak_mw=max((m for _,m in ctrl_mw_series),default=0.0)
     for s in SITES:
         try: await chargers[s]._connection.close()
         except Exception: pass
     srv.close(); await srv.wait_closed()
-    return dict(curtail_start=dict(curtail_start), t_detect=t_detect, recovery=recovery, W0=W0, T0=t0_attack, W1=W1, denied_sites=sorted(aborted),
-                dE_kwh=round(dE,1),denied=denied,ctrl_sites=len(curtail_start),ctrl_mw=round(peak_mw,3),
+    return dict(curtail_start=dict(curtail_start), tamper_start=dict(tamper_start), affected=affected, mode=mode,
+                t_detect=t_detect, recovery=recovery, W0=W0, T0=t0_attack, W1=W1, denied_sites=sorted(aborted),
+                dE_kwh=round(dE,1),denied=denied,billing_eur=round(billing,1),
+                ctrl_sites=len(curtail_start),n_affected=len(affected),ctrl_mw=round(peak_mw,3),
                 tau_d_min=round((t_detect-t0_attack)/60,1) if t_detect else None,
                 recovery_min=round((rec-t0_attack)/60,1) if recovery else None, n_cmds=len(cmd_log),
                 obs_series=obs_series, ctrl_mw_series=ctrl_mw_series)
