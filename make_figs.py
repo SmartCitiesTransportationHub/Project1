@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 import matplotlib.font_manager as fm
 
-DATA = os.environ.get("AMB_DATA", "./supp")  # 指向解压后的数据目录（含 dgt_nap/、charging_*.csv、amb_charging.gpkg）
+DATA = os.environ.get("AMB_DATA", "./supp")  # 解压后的数据目录（dgt_nap/、charging_*.csv、amb_charging.gpkg）
 OUT  = os.environ.get("AMB_FIGS", "./figs")
 os.makedirs(OUT, exist_ok=True)
 
@@ -163,7 +163,7 @@ for k,(lab,col) in grp.items():
     xs=[g.x for g in sub["g"]]; ys=[g.y for g in sub["g"]]
     ax.scatter(xs,ys,s=12+np.sqrt(sub.sess_day.clip(lower=0))*11,c=col,edgecolor="white",lw=.6,zorder=5,
                label=f"AMB 网络·{lab}（{len(sub)}）")
-ax.set_title("图1  巴塞罗那大都会区公共充电网络与多运营商登记设施")
+ax.set_title("巴塞罗那大都会区公共充电网络与多运营商登记设施")
 ax.set_aspect("equal"); ax.set_xticks([]); ax.set_yticks([])
 for s in ["left","bottom"]: ax.spines[s].set_visible(False)
 ax.legend(loc="lower left",fontsize=8,frameon=False)
@@ -194,7 +194,7 @@ tag(3.0,3.15,"A",OI["verm"]); ax.text(3.0,3.0,"中间人\n篡改功率/伪造电
 tag(1.0,0.9,"B",OI["orange"]); ax.text(1.0,0.75,"冒充桩/克隆 RFID",ha="center",va="top",fontsize=7.5)
 tag(5.2,3.4,"C",OI["purple"]); ax.text(5.4,4.25,"后台被攻破：批量下发限功率/停充",ha="center",va="center",fontsize=7.5)
 tag(4.0,1.35,"D",OI["blue"]); ax.text(4.0,1.2,"对后台 DoS\n心跳/连接洪泛",ha="center",va="top",fontsize=7.5)
-ax.set_title("图2  威胁模型：OCPP 控制通道上的四类攻击者位置",loc="center")
+ax.set_title("威胁模型：OCPP 控制通道上的四类攻击者位置",loc="center")
 save(fig,"fig2_threat.png")
 
 # ---- FIG3 attack surface: (a) auth  (b) cumulative controllable MW vs #backends ----
@@ -220,7 +220,7 @@ a2.annotate(f"全网上限 {tot_mw:.1f} MW",(x[-1],tot_mw),xytext=(-4,4),textcoo
 a2.annotate(f"直流 {dc_mw:.1f} MW",(x[-1],dc_mw),xytext=(-4,4),textcoords="offset points",ha="right",fontsize=7.5,color=OI["verm"])
 a2.set_xlabel("被攻破的运营商后台数（按功率降序）"); a2.set_ylabel("可控额定功率 (MW)")
 a2.set_title("(b) 后台聚合的可控功率上限",fontsize=10); a2.legend(fontsize=8,frameon=False,loc="lower right")
-fig.suptitle("图3  攻击面的静态上限（DGT 登记表，2026-09-27 快照）",y=1.02,fontsize=11,fontweight="bold")
+fig.suptitle("攻击面的静态上限（DGT 登记表，2026-09-27 快照）",y=1.02,fontsize=11,fontweight="bold")
 save(fig,"fig3_surface.png")
 print("[CHECK] cum MW 1 backend=%.2f, all=%.2f (==total %.2f)"%(cum[0],cum[-1],tot_mw))
 assert abs(cum[-1]-tot_mw)<0.05
@@ -236,7 +236,7 @@ for i,(m,d,pts,mn) in enumerate(zip(top.mw,top.dc,top.points,top.munis)):
     ax.text(0.1,yy[i]-0.5,f"{int(pts)} 充电点 · {int(mn)} 市镇",va="center",fontsize=7,color=MUT)
 ax.set_yticks(yy); ax.set_yticklabels(top.operator,fontsize=8)
 ax.set_xlabel("单个 CSMS 被攻破时的可控额定功率 (MW)")
-ax.set_title("图4  后台被攻破的爆炸半径：按运营商（AMB 范围，前 8 家）")
+ax.set_title("后台被攻破的爆炸半径：按运营商（AMB 范围，前 8 家）")
 ax.legend(fontsize=8,frameon=False,loc="lower right")
 save(fig,"fig4_blast.png")
 
@@ -258,7 +258,7 @@ b2.plot(h,den3,color=OI["purple"],lw=2,label="中断 3 小时")
 b2.set_xlabel("后台中断起始小时"); b2.set_ylabel("被拒会话数（平均每日·全网）")
 b2.set_title("(b) 后台中断的被拒会话",fontsize=10); b2.legend(fontsize=8,frameon=False)
 b2.set_xticks([0,6,12,18,23])
-fig.suptitle("图5  真实充电流量下的时间暴露（AMB 网络 2025 全年会话）",y=1.03,fontsize=11,fontweight="bold")
+fig.suptitle("真实充电流量下的时间暴露（AMB 网络 2025 全年会话）",y=1.03,fontsize=11,fontweight="bold")
 save(fig,"fig5_temporal.png")
 print("[CHECK] denied 3h max=%.1f at hour=%d; daily total=%.1f"%(den3.max(),int(h[den3.argmax()]),cum1.sum()))
 assert den3.max()<=cum1.sum()+1e-6
@@ -274,7 +274,7 @@ inj_i=int(np.nanargmin(np.abs((days-pd.Timestamp('2025-09-15')).days)))
 c1.plot(days,yv,color="#b9c6d6",lw=1,label="实测全网日会话数")
 c1.plot(days,med,color=OI["blue"],lw=1.8,label="规模×节律期望（28 日稳健基线）")
 c1.scatter([days[bo_i]],[yv[bo_i]],s=60,c=OI["verm"],zorder=6,label="4·28 大停电（真实良性，须白名单）")
-c1.set_ylabel("日会话数"); c1.set_title("图6  物理一致性检测器在真实日序列上的行为",loc="left")
+c1.set_ylabel("日会话数"); c1.set_title("物理一致性检测器在真实日序列上的行为",loc="left")
 c1.legend(fontsize=7.5,frameon=False,loc="upper left",ncol=2)
 # consistency-ratio panel with a labeled synthetic injection
 band_lo,band_hi=0.7,1.4
@@ -306,7 +306,7 @@ ax.plot(T, np.minimum(fleet, 0.25*r*T*mw_per_pt), color=OI["blue"], lw=2, ls="--
         label="隔离 + 指令限速（扇出降至 25%）")
 ax.set_xlabel("检测+遏制时延 T（分钟，由 OCPP 仿真平台实测标定）")
 ax.set_ylabel("时延内可达的受控功率 (MW)")
-ax.set_title("图A1  遏制手段对爆炸半径的削减（分析模型，参数见附录）")
+ax.set_title("遏制手段对爆炸半径的削减（分析模型，参数见附录）")
 ax.legend(fontsize=8,frameon=False,loc="center right"); ax.set_ylim(0,tot_mw*1.05)
 ax.text(.02,.97,"模型：可达功率 = min(上限, 扇出速率 × 时延 × 单点功率)\n参数：r=20 指令/分、单点 %.3f MW；时延 T 由 OCPP 仿真平台实测标定；非仿真实测"%mw_per_pt,
         transform=ax.transAxes,ha="left",va="top",fontsize=7,color=MUT)
@@ -319,7 +319,7 @@ ax.plot(range(24),load_mw,color=OI["blue"],lw=2)
 ax.axhline(peak_mw,color=MUT,lw=.7,ls=":")
 ax.annotate(f"峰值≈{peak_mw:.2f} MW（19 时前后）",(19,peak_mw),xytext=(-4,4),textcoords="offset points",ha="right",fontsize=8,color=INK)
 ax.set_xlabel("小时"); ax.set_ylabel("平均功率 (MW)"); ax.set_xticks([0,6,12,18,23])
-ax.set_title("图A2  AMB 网络平均日负荷重建（按会话时长均摊电量）")
+ax.set_title("AMB 网络平均日负荷重建（按会话时长均摊电量）")
 save(fig,"figA2_load.png")
 
 print("\n=== FACTS ==="); print(json.dumps(facts,ensure_ascii=False,indent=2))
