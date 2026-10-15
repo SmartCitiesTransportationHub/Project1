@@ -146,7 +146,8 @@ async def run_scenario(attack,defense,seed=0,with_attack=True,t0_attack=T0):
         try: await chargers[s]._connection.close()
         except Exception: pass
     srv.close(); await srv.wait_closed()
-    return dict(dE_kwh=round(dE,1),denied=denied,ctrl_sites=len(curtail_start),ctrl_mw=round(peak_mw,3),
+    return dict(curtail_start=dict(curtail_start), t_detect=t_detect, recovery=recovery, W0=W0, T0=t0_attack, W1=W1, denied_sites=sorted(aborted),
+                dE_kwh=round(dE,1),denied=denied,ctrl_sites=len(curtail_start),ctrl_mw=round(peak_mw,3),
                 tau_d_min=round((t_detect-t0_attack)/60,1) if t_detect else None,
                 recovery_min=round((rec-t0_attack)/60,1) if recovery else None, n_cmds=len(cmd_log),
                 obs_series=obs_series, ctrl_mw_series=ctrl_mw_series)
