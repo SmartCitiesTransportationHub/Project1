@@ -2,9 +2,9 @@
 <title>AMB OCPP 攻防指挥台</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/deck.gl/8.9.35/dist.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-/* 3D command console — threat strip over [ deck.gl 3D stage | telemetry rail ] over OCPP message terminal */
+/* 3D command console (Three.js) — threat strip over [ 3D stage | telemetry rail ] over OCPP message terminal */
 :root{
   --bg:#060a10;--panel:#101a27;--panel2:#0c131d;--line:#223040;--fg:#dce7f3;--muted:#7f90a6;
   --idle:#39c2d8;--danger:#ff4d57;--warn:#ffb02e;--ok:#35d6a0;--accent:#4ea1ff;--csms:#c58bff;--tamper:#ff8a3d;--offline:#8aa0b8;
@@ -22,15 +22,12 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
 .live b{width:6px;height:6px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px var(--danger);animation:bl 1.1s infinite}
 @keyframes bl{50%{opacity:.25}}
 .controls{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--muted)}
-.ctl{display:flex;align-items:center;gap:6px}
-.ctl .lab{letter-spacing:.06em}
+.ctl{display:flex;align-items:center;gap:6px}.ctl .lab{letter-spacing:.06em}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2);flex-wrap:wrap}
 .seg button{font-family:var(--mono);font-size:10.5px;color:var(--muted);background:none;border:0;padding:6px 9px;cursor:pointer;white-space:nowrap}
-.seg button[aria-pressed=true]{color:#06121a;background:var(--idle);font-weight:600}
-.seg.v button[aria-pressed=true]{background:var(--accent)}
+.seg button[aria-pressed=true]{color:#06121a;background:var(--idle);font-weight:600}.seg.v button[aria-pressed=true]{background:var(--accent)}
 .transport{display:flex;align-items:center;gap:8px;flex:1;min-width:230px}
-.play{font-family:var(--mono);font-size:12px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;min-width:78px}
-.play:hover{border-color:var(--idle)}
+.play{font-family:var(--mono);font-size:12px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;min-width:78px}.play:hover{border-color:var(--idle)}
 .clock{font-family:var(--mono);font-size:12.5px;color:var(--idle);min-width:88px;font-variant-numeric:tabular-nums}
 .scrub{position:relative;flex:1;min-width:0}
 input[type=range]{width:100%;accent-color:var(--idle);cursor:pointer}
@@ -44,21 +41,19 @@ select{font-family:var(--mono);font-size:10px;background:var(--panel2);color:var
 .threat .name{font-family:var(--disp);font-weight:700;font-size:12px;min-width:60px;text-align:right}
 .main{display:grid;grid-template-columns:1fr 288px;gap:8px;flex:1;min-height:0}
 .stage{position:relative;background:#081019;border:1px solid var(--line);border-radius:11px;overflow:hidden;min-width:0}
-#deckcanvas{width:100%;height:100%;display:block}
+#three{width:100%;height:100%;display:block;cursor:grab}#three:active{cursor:grabbing}
 .legend{position:absolute;left:10px;bottom:9px;display:flex;flex-direction:column;gap:3px;background:#0a111ae0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:9px;pointer-events:none}
-.legend .row{display:flex;align-items:center;gap:6px;color:var(--muted)}
-.dot{width:8px;height:8px;border-radius:2px}
+.legend .row{display:flex;align-items:center;gap:6px;color:var(--muted)}.dot{width:8px;height:8px;border-radius:2px}
 .hintbar{position:absolute;right:10px;top:9px;font-family:var(--mono);font-size:9px;color:var(--muted);background:#0a111ae0;border:1px solid var(--line);border-radius:7px;padding:5px 8px;pointer-events:none;text-align:right}
 .gate{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:#060a10cc;z-index:5}
-.gate.on{display:flex}
-.gate .g1{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--ok)}
+.gate.on{display:flex}.gate .g1{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--ok)}
 .gate .g2{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:360px;text-align:center;line-height:1.6}
+.tip3{position:fixed;pointer-events:none;background:#0a1019;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:11px;color:var(--fg);z-index:30;max-width:230px;opacity:0;transition:opacity .1s}.tip3 b{color:var(--idle)}
 .rail{display:flex;flex-direction:column;gap:7px;min-height:0;overflow:auto}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 9px;position:relative;overflow:hidden}
 .kpi .k{font-family:var(--mono);font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
-.kpi .v{font-family:var(--disp);font-weight:700;font-size:19px;margin-top:2px;font-variant-numeric:tabular-nums}
-.kpi .u{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.kpi .v{font-family:var(--disp);font-weight:700;font-size:19px;margin-top:2px;font-variant-numeric:tabular-nums}.kpi .u{font-family:var(--mono);font-size:9px;color:var(--muted)}
 .kpi.p .v{color:var(--danger)}.kpi.s .v{color:var(--warn)}.kpi.d .v{color:var(--idle)}.kpi.r .v{color:var(--ok)}
 .kpi .bar{position:absolute;left:0;bottom:0;height:3px;background:currentColor;opacity:.85;transition:width .2s}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
@@ -74,7 +69,7 @@ select{font-family:var(--mono);font-size:10px;background:var(--panel2);color:var
 .feed .ln.ok{color:#8fb0c9}.feed .ln.atk{color:var(--danger)}.feed .ln.alarm{color:var(--warn)}.feed .ln.contain{color:var(--ok)}
 .foot{font-family:var(--mono);font-size:8.5px;color:var(--muted);text-align:center}
 @media (max-width:840px){.main{grid-template-columns:1fr;grid-template-rows:minmax(300px,1fr) auto}.rail{flex-direction:row;flex-wrap:wrap;overflow:visible}.kpis{flex:1;min-width:200px}.card{flex:1;min-width:180px}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.live b{animation:none}}
 </style>
 
 <div class="wrap">
@@ -82,31 +77,29 @@ select{font-family:var(--mono);font-size:10px;background:var(--panel2);color:var
     <div class="brand"><h1>AMB · OCPP 攻防指挥台</h1><span class="sub">3D · 真实 OCPP 1.6 仿真</span></div>
     <span class="live"><b></b>LIVE</span>
     <div class="transport">
-      <button class="play" id="play">▶ 播放</button>
-      <span class="clock" id="clock">T+00.0</span>
+      <button class="play" id="play">▶ 播放</button><span class="clock" id="clock">T+00.0</span>
       <div class="scrub"><input type="range" id="scrub" min="0" max="60" step="0.5" value="0" aria-label="时间轴"><div class="ticks" id="ticks"></div></div>
       <select id="speed" aria-label="速度"><option value="6">1×</option><option value="12" selected>2×</option><option value="24">4×</option></select>
     </div>
   </header>
   <div class="controls">
-    <div class="ctl"><span class="lab">攻击向量</span><div class="seg" id="segV" role="group"></div></div>
-    <div class="ctl"><span class="lab">防御</span><div class="seg" id="segD" role="group"></div></div>
-    <div class="ctl"><span class="lab">协议版本</span><div class="seg v" id="segP" role="group"></div></div>
+    <div class="ctl"><span class="lab">攻击向量</span><div class="seg" id="segV"></div></div>
+    <div class="ctl"><span class="lab">防御</span><div class="seg" id="segD"></div></div>
+    <div class="ctl"><span class="lab">协议版本</span><div class="seg v" id="segP"></div></div>
   </div>
   <div class="threat"><span class="lab">威胁等级</span><div class="lv" id="lv"><i></i><i></i><i></i><i></i><i></i></div><span class="name" id="lvname">安全</span></div>
-
   <div class="main">
     <div class="stage" id="stage">
-      <canvas id="deckcanvas"></canvas>
+      <canvas id="three"></canvas>
       <div class="legend">
         <div class="row"><span class="dot" style="background:var(--idle)"></span>正常（柱高∝负荷）</div>
         <div class="row"><span class="dot" style="background:var(--danger)"></span>限功率/停充（柱塌缩）</div>
         <div class="row"><span class="dot" style="background:var(--tamper)"></span>篡改电表（柱暴涨）</div>
         <div class="row"><span class="dot" style="background:var(--offline)"></span>DoS 离线</div>
         <div class="row"><span class="dot" style="background:var(--ok)"></span>已隔离/恢复</div>
-        <div class="row"><span class="dot" style="background:var(--csms)"></span>CSMS · 红弧=攻击扇出</div>
+        <div class="row"><span class="dot" style="background:var(--csms)"></span>CSMS · 红线=攻击扇出</div>
       </div>
-      <div class="hintbar">拖拽旋转 · 右键/双指俯仰 · 滚轮缩放<br>市镇底色∝受控功率</div>
+      <div class="hintbar">拖拽旋转 · 滚轮缩放<br>市镇底色∝受控功率</div>
       <div class="gate" id="gate"><div class="g1">✔ 攻击被协议阻断</div><div class="g2" id="gatemsg"></div></div>
     </div>
     <div class="rail">
@@ -124,144 +117,175 @@ select{font-family:var(--mono);font-size:10px;background:var(--panel2);color:var
   <div class="term"><div class="bar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="t">OCPP 1.6 报文流 · CSMS</span><span id="feedstat" style="margin-left:auto"></span></div><div class="feed" id="feed"></div></div>
   <div class="foot" id="foot"></div>
 </div>
+<div class="tip3" id="tip3"></div>
 
 <script>/*__DATA__*/</script>
 <script>
 const $=s=>document.querySelector(s);
-const G=DATA.geo,SIM=DATA.sim,VECS=DATA.vectors,DEFS=DATA.defenses,VERS=DATA.versions,MAXT=60,PEAK=DATA.meta.peak_mw||0.9;
-let vec=VECS[0].key, def="iso", ver="1.6", t=0;
-const vmeta=k=>VECS.find(v=>v.key===k);
-const cur=()=>SIM[vec][def];
-const feasible=()=>VERS.find(v=>v.key===ver).feasible[vec]===1;
-const COL={idle:[57,194,216],cut:[255,77,87],tamper:[255,138,61],offline:[138,160,184],rec:[53,214,160],csms:[197,139,255]};
+const G=DATA.geo,SIM=DATA.sim,VECS=DATA.vectors,DEFS=DATA.defenses,VERS=DATA.versions,MAXT=60,PEAK=DATA.meta.peak_mw||0.9,NS=DATA.meta.n_sites;
+let vec=VECS[0].key,def="iso",ver="1.6",t=0;
+const vmeta=k=>VECS.find(v=>v.key===k),cur=()=>SIM[vec][def],feasible=()=>VERS.find(v=>v.key===ver).feasible[vec]===1;
 const norm=s=>(s||"").toString().trim().toLowerCase();
+const C={idle:0x39c2d8,cut:0xff4d57,tamper:0xff8a3d,offline:0x8aa0b8,rec:0x35d6a0,csms:0xc58bff};
 const center=DATA.meta.center;
-const csmsLL=[center[0], d3.max(G.sites,s=>s.geometry.coordinates[1])+0.01];
 
-// ---- deck.gl 3D ----
-let deckgl;
-function initDeck(){
-  if(typeof deck==="undefined"||!deck.Deck){$("#stage").insertAdjacentHTML("beforeend",'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7f90a6;font-family:var(--mono);font-size:12px">3D 引擎加载中…（若持续请检查网络）</div>');return;}
-  deckgl=new deck.Deck({
-    canvas:"deckcanvas",
-    views:new deck.MapView({repeat:false}),
-    initialViewState:{longitude:center[0],latitude:center[1]-0.02,zoom:10.3,pitch:52,bearing:-17,minZoom:9,maxZoom:13},
-    controller:{dragRotate:true,touchRotate:true},
-    parameters:{clearColor:[0.03,0.06,0.1,1]},
-    getTooltip:({object})=>object&&object.site?{html:`<b>${object.site}</b> · ${object.muni}<br>${object.name}<br>${object.pkw.toFixed(0)} kW · ${object.stnm}`,
-      style:{background:"#0a1019",border:"1px solid #223040",borderRadius:"8px",fontFamily:"IBM Plex Mono,monospace",fontSize:"11px",color:"#dce7f3"}}:null,
-    layers:[]
+// ---------- projection to local planar frame ----------
+const cLon=center[0],cLat=center[1],kx=Math.cos(cLat*Math.PI/180);
+let SC=1,ground={};
+(function fit(){
+  let xs=[],zs=[];
+  G.sites.forEach(s=>{const[lo,la]=s.geometry.coordinates;xs.push((lo-cLon)*kx);zs.push(-(la-cLat));});
+  const w=Math.max(...xs)-Math.min(...xs),h=Math.max(...zs)-Math.min(...zs);
+  SC=70/Math.max(w,h);
+})();
+const PX=(lo,la)=>[(lo-cLon)*kx*SC, -(la-cLat)*SC];
+const csmsP=(()=>{const z=Math.min(...G.sites.map(s=>PX(...s.geometry.coordinates)[1]))-6;return [0,z];})();
+
+// ---------- Three.js scene ----------
+let scene,cam,renderer,raycaster,bars=[],muniMesh=[],attackLines,csmsMesh;
+let az=-0.5,el=0.62,R=95,target=new THREE.Vector3(0,3,0),dragging=false,px=0,py=0;
+const HS=0.19; // kW -> world-units height scale
+function initThree(){
+  if(typeof THREE==="undefined"){$("#stage").insertAdjacentHTML("beforeend",'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7f90a6;font-family:var(--mono)">3D 引擎未能加载</div>');return false;}
+  const cv=$("#three");
+  renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x081019);scene.fog=new THREE.Fog(0x081019,120,260);
+  cam=new THREE.PerspectiveCamera(45,1,0.1,2000);
+  scene.add(new THREE.AmbientLight(0x90a4bd,0.85));
+  const dl=new THREE.DirectionalLight(0xffffff,0.75);dl.position.set(40,80,30);scene.add(dl);
+  const dl2=new THREE.DirectionalLight(0x4ea1ff,0.3);dl2.position.set(-40,40,-30);scene.add(dl2);
+  // ground
+  const gp=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshBasicMaterial({color:0x070d15}));
+  gp.rotation.x=-Math.PI/2;gp.position.y=-0.05;scene.add(gp);
+  // municipality fills (choropleth) + outlines
+  G.muni.forEach(m=>{
+    const polys=m.geometry.type==="MultiPolygon"?m.geometry.coordinates:[m.geometry.coordinates];
+    polys.forEach(pg=>{
+      const ring=pg[0];
+      if(!ring||ring.length<3)return;
+      const shape=new THREE.Shape(ring.map(p=>{const[x,z]=PX(p[0],p[1]);return new THREE.Vector2(x,z);}));
+      const geo=new THREE.ShapeGeometry(shape);geo.rotateX(Math.PI/2);
+      const mat=new THREE.MeshBasicMaterial({color:0x0e1823,transparent:true,opacity:0.92,side:THREE.DoubleSide});
+      const mesh=new THREE.Mesh(geo,mat);mesh.position.y=0;scene.add(mesh);
+      muniMesh.push({mesh,muni:norm(m.properties.nommuni)});
+      const pts=ring.map(p=>{const[x,z]=PX(p[0],p[1]);return new THREE.Vector3(x,0.02,z);});
+      const lg=new THREE.BufferGeometry().setFromPoints(pts);
+      scene.add(new THREE.Line(lg,new THREE.LineBasicMaterial({color:0x24303f})));
+    });
   });
+  // bars
+  const geo=new THREE.BoxGeometry(1,1,1);
+  G.sites.forEach(s=>{const[x,z]=PX(...s.geometry.coordinates);const pk=s.properties.pkw||1;
+    const bw=1.1;const mat=new THREE.MeshStandardMaterial({color:C.idle,metalness:.1,roughness:.55,transparent:true,opacity:.95});
+    const mesh=new THREE.Mesh(geo,mat);mesh.scale.set(bw,1,bw);mesh.position.set(x,0.5,z);
+    mesh.userData={site:s.properties.site_id,name:s.properties.name,muni:s.properties.muni,pkw:pk,bw};
+    scene.add(mesh);bars.push({mesh,s,pk,x,z,bw});});
+  // csms
+  csmsMesh=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.4,2.4),new THREE.MeshStandardMaterial({color:C.csms,emissive:0x3a1a5a,emissiveIntensity:.5}));
+  csmsMesh.position.set(csmsP[0],1.4,csmsP[1]);scene.add(csmsMesh);
+  // attack lines container (rebuilt per update)
+  attackLines=new THREE.Group();scene.add(attackLines);
+  raycaster=new THREE.Raycaster();
+  // interaction
+  cv.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener("pointerup",e=>{dragging=false;});
+  cv.addEventListener("pointermove",e=>{
+    if(dragging){az-=(e.clientX-px)*0.006;el=Math.max(0.12,Math.min(1.35,el+(e.clientY-py)*0.005));px=e.clientX;py=e.clientY;}
+    else hover(e);
+  });
+  cv.addEventListener("wheel",e=>{e.preventDefault();R=Math.max(45,Math.min(180,R+e.deltaY*0.06));},{passive:false});
+  resize();addEventListener("resize",resize);
+  animate();return true;
 }
-function stateOf(id,tt){
-  if(!feasible()) return "idle";
-  const s=cur(),ct=s.attack[id];
-  if(ct==null||tt<ct) return "idle";
-  if(s.recovery!=null&&tt>=s.recovery) return "rec";
-  return s.kind; // cut / tamper / offline
+function resize(){if(!renderer)return;const r=$("#stage").getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();}
+function hover(e){
+  const cv=$("#three"),r=cv.getBoundingClientRect();
+  const mx=((e.clientX-r.left)/r.width)*2-1,my=-((e.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera({x:mx,y:my},cam);
+  const hit=raycaster.intersectObjects(bars.map(b=>b.mesh))[0];
+  const tp=$("#tip3");
+  if(hit){const u=hit.object.userData,st=stateOf(u.site,t);
+    tp.innerHTML=`<b>${u.site}</b> · ${u.muni}<br>${u.name}<br>${u.pkw.toFixed(0)} kW · ${({idle:"正常",cut:"限功率/停充",tamper:"篡改电表",offline:"DoS 离线",rec:"已隔离/恢复"})[st]}`;
+    tp.style.opacity=1;tp.style.left=Math.min(e.clientX+13,innerWidth-240)+"px";tp.style.top=(e.clientY+13)+"px";}
+  else tp.style.opacity=0;
 }
-function hmultFor(st){return st==="cut"?0.08:st==="tamper"?2.2:st==="offline"?0.1:st==="rec"?1:1;}
-function colFor(st){return st==="cut"?COL.cut:st==="tamper"?COL.tamper:st==="offline"?COL.offline:st==="rec"?COL.rec:COL.idle;}
-const siteMuniCtrl={};
-function layers(tt){
-  const s=cur(),ELEV=55;
-  // municipality controlled fraction
-  const muniCtrl={};
-  G.muni.forEach(m=>muniCtrl[norm(m.properties.nommuni)]={c:0,t:0});
-  G.sites.forEach(si=>{const nm=norm(si.properties.muni);if(!muniCtrl[nm])return;muniCtrl[nm].t+=si.properties.pkw||0;
-    if(stateOf(si.properties.site_id,tt)!=="idle"&&stateOf(si.properties.site_id,tt)!=="rec")muniCtrl[nm].c+=si.properties.pkw||0;});
-  const muniL=new deck.PolygonLayer({id:"muni",data:G.muni,getPolygon:d=>d.geometry.coordinates,
-    getFillColor:d=>{const a=muniCtrl[norm(d.properties.nommuni)];const f=a&&a.t>0?Math.min(1,a.c/a.t):0;return [14+f*120,24-f*6,35-f*8,220];},
-    getLineColor:[34,48,64],lineWidthMinPixels:0.6,stroked:true,filled:true,extruded:false,pickable:false});
-  const cols=G.sites.map(si=>{const st=stateOf(si.properties.site_id,tt);
-    return {position:si.geometry.coordinates,elevation:(si.properties.pkw||1)*ELEV*hmultFor(st),color:colFor(st),
-            site:si.properties.site_id,name:si.properties.name,muni:si.properties.muni,pkw:si.properties.pkw||0,
-            stnm:{idle:"正常",cut:"限功率/停充",tamper:"篡改电表",offline:"DoS 离线",rec:"已隔离/恢复"}[st]};});
-  const colL=new deck.ColumnLayer({id:"col",data:cols,diskResolution:14,radius:260,extruded:true,pickable:true,
-    getPosition:d=>d.position,getElevation:d=>d.elevation,getFillColor:d=>[...d.color,230],
-    elevationScale:1,material:{ambient:0.6,diffuse:0.6,shininess:32}});
-  // arcs CSMS -> compromised
-  const comp=G.sites.filter(si=>{const st=stateOf(si.properties.site_id,tt);return st==="cut"||st==="tamper"||st==="offline";});
-  const arcL=new deck.ArcLayer({id:"arc",data:comp,getSourcePosition:()=>csmsLL,getTargetPosition:si=>si.geometry.coordinates,
-    getSourceColor:[197,139,255,180],getTargetColor:d=>[...colFor(cur().kind),200],getWidth:1.4,getHeight:0.4});
-  const csmsL=new deck.ColumnLayer({id:"csms",data:[{position:csmsLL}],diskResolution:6,radius:520,extruded:true,
-    getPosition:d=>d.position,getElevation:600,getFillColor:comp.length?[255,77,87,240]:[197,139,255,240]});
-  const regL=new deck.ScatterplotLayer({id:"reg",data:G.registry,getPosition:d=>d.geometry.coordinates,
-    getRadius:d=>d.properties.has_dc?90:60,getFillColor:[60,80,100,120],radiusMinPixels:0.6});
-  return [muniL,regL,arcL,colL,csmsL];
+function animate(){requestAnimationFrame(animate);if(!renderer)return;
+  if(playing){const now=performance.now();const dt=(now-last)/1000;last=now;let tt=t+dt*(+$("#speed").value);if(tt>=MAXT){tt=MAXT;playing=false;$("#play").textContent="▶ 重播";}$("#scrub").value=tt;updateState(tt);}
+  cam.position.set(target.x+R*Math.cos(el)*Math.sin(az),target.y+R*Math.sin(el),target.z+R*Math.cos(el)*Math.cos(az));
+  cam.lookAt(target);renderer.render(scene,cam);
 }
-// ---- telemetry (d3) ----
-function tele(id,key,thr,hi){
-  const s=cur(),el=d3.select(id);el.selectAll("*").remove();
+function stateOf(id,tt){if(!feasible())return"idle";const s=cur(),ct=s.attack[id];if(ct==null||tt<ct)return"idle";if(s.recovery!=null&&tt>=s.recovery)return"rec";return s.kind;}
+function hmult(st){return st==="cut"?0.1:st==="tamper"?2.2:st==="offline"?0.12:1;}
+function colOf(st){return st==="cut"?C.cut:st==="tamper"?C.tamper:st==="offline"?C.offline:st==="rec"?C.rec:C.idle;}
+function interp(mins,arr,tt){if(tt<=mins[0])return arr[0];if(tt>=mins[mins.length-1])return arr[arr.length-1];let i=d3.bisectLeft(mins,tt);const a=mins[i-1],b=mins[i];return arr[i-1]+(arr[i]-arr[i-1])*(tt-a)/(b-a);}
+function updateState(tt){
+  t=tt;const s=cur(),vm=vmeta(vec),feas=feasible();
+  $("#gate").classList.toggle("on",!feas);$("#gatemsg").textContent=`${vmeta(vec).label} 在 ${ver} 下不可行：TLS/证书阻断链路中间人篡改。后台沦陷与 DoS 仍可行。`;
+  // bars
+  const muniAgg={};muniMesh.forEach(mm=>muniAgg[mm.muni]=muniAgg[mm.muni]||{c:0,t:0});
+  bars.forEach(b=>{const st=stateOf(b.s.properties.site_id,tt);const h=Math.max(0.25,b.pk*HS*hmult(st));
+    b.mesh.scale.y=h;b.mesh.position.y=h/2;b.mesh.material.color.setHex(colOf(st));
+    const nm=norm(b.s.properties.muni);if(muniAgg[nm]){muniAgg[nm].t+=b.pk;if(st==="cut"||st==="tamper"||st==="offline")muniAgg[nm].c+=b.pk;}});
+  // choropleth
+  muniMesh.forEach(mm=>{const a=muniAgg[mm.muni];const f=a&&a.t>0?Math.min(1,a.c/a.t):0;
+    mm.mesh.material.color.setRGB((14+f*130)/255,(24-f*8)/255,(35-f*10)/255);});
+  // csms + attack lines
+  const comp=bars.filter(b=>{const st=stateOf(b.s.properties.site_id,tt);return st==="cut"||st==="tamper"||st==="offline";});
+  csmsMesh.material.color.setHex(comp.length?C.cut:C.csms);
+  while(attackLines.children.length)attackLines.remove(attackLines.children[0]);
+  const lcol=comp.length?colOf(cur().kind):C.cut;
+  comp.forEach(b=>{const h=b.mesh.scale.y;
+    const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(csmsP[0],1.4,csmsP[1]),new THREE.Vector3(b.x,h,b.z)]);
+    attackLines.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:lcol,transparent:true,opacity:.45})));});
+  // ----- overlay panels -----
+  const isT=vm.kind==="tamper",isO=vm.kind==="offline";
+  const prim=!feas?0:isT?interp(s.mins,s.bill,tt):isO?liveDenied(s,tt):interp(s.mins,s.ctrl_mw,tt);
+  $("#k0lab").textContent=isT?"计费偏差":isO?"被拒会话":"受控功率";$("#k0u").textContent=isT?" €":isO?" 次":" MW";
+  $("#k0").textContent=isT?prim.toFixed(1):isO?Math.round(prim):prim.toFixed(3);
+  const pf=isT?Math.min(1,prim/120):isO?Math.min(1,prim/120):Math.min(1,prim/PEAK);$("#k0bar").style.width=(pf*100)+"%";
+  const aff=feas?Math.round(interp(s.mins,s.ctrl_sites,tt)):0;
+  $("#k1").innerHTML=aff+'<span class="u"> /'+NS+'</span>';$("#k1bar").style.width=(aff/NS*100)+"%";
+  $("#k2").innerHTML=(feas&&s.t_detect!=null&&tt>=s.t_detect?s.t_detect.toFixed(1):"—")+'<span class="u"> min</span>';
+  $("#k3").innerHTML=(feas&&s.recovery!=null&&tt>=s.recovery?s.recovery.toFixed(1):"—")+'<span class="u"> min</span>';
+  $("#clock").textContent="T+"+tt.toFixed(1).padStart(4,"0");
+  const cr=feas?interp(s.mins,s.cmdrate,tt):0,ra=feas?interp(s.mins,s.ratio,tt):1;
+  $("#f1").classList.toggle("on",feas&&tt>=0&&cr>=5);$("#f2").classList.toggle("on",feas&&tt>=0&&(ra<0.5||ra>1.5));
+  telCur(tt);threat(pf,tt,s,feas);renderFeed(tt,feas);
+}
+function liveDenied(s,tt){const aff=interp(s.mins,s.ctrl_sites,tt),mx=Math.max(...s.ctrl_sites,1);return s.metrics.denied*aff/mx;}
+function threat(pf,tt,s,feas){let lv=0;if(feas){if(s.recovery!=null&&tt>=s.recovery)lv=0;else if(pf>=.75)lv=4;else if(pf>=.45)lv=3;else if(pf>=.2)lv=2;else if(pf>0.01)lv=1;}
+  const names=["安全","注意","警戒","严重","危急"],cols=["#35d6a0","#39c2d8","#ffb02e","#ff8a3d","#ff4d57"];
+  document.querySelectorAll("#lv i").forEach((e,i)=>e.style.background=i<lv?cols[lv]:"#1b2838");
+  const n=$("#lvname");n.textContent=feas?names[lv]:"阻断";n.style.color=feas?cols[lv]:"#35d6a0";}
+function renderFeed(tt,feas){const s=cur(),feed=$("#feed");
+  if(!feas){feed.innerHTML='<div class="ln contain"><span class="ts">—</span><span>该攻击向量在 '+ver+' 下不可行：TLS/证书阻断链路中间人篡改</span></div>';$("#feedstat").textContent="";return;}
+  const sh=s.stream.filter(e=>e.t<=tt);
+  feed.innerHTML=sh.map(e=>`<div class="ln ${e.k}"><span class="ts">T${e.t>=0?"+":""}${e.t.toFixed(1)}</span><span>${e.x}</span></div>`).join("");
+  feed.scrollTop=feed.scrollHeight;$("#feedstat").textContent=sh.length+" / "+s.stream.length+" 条";}
+function tele(id,key,thr,hi){const s=cur(),el=d3.select(id);el.selectAll("*").remove();
   const w=$(id).clientWidth||250,h=46,m=5,x=d3.scaleLinear().domain([0,MAXT]).range([m,w-m]);
-  const vals=feasible()?s[key]:s[key].map(_=>hi?1:0);
-  const y=d3.scaleLinear().domain([0,Math.max(thr*1.4,d3.max(vals)||1)]).range([h-m,m]);
+  const vals=feasible()?s[key]:s[key].map(_=>hi?1:0);const y=d3.scaleLinear().domain([0,Math.max(thr*1.4,d3.max(vals)||1)]).range([h-m,m]);
   el.attr("viewBox",`0 0 ${w} ${h}`);
   el.append("line").attr("x1",m).attr("x2",w-m).attr("y1",y(thr)).attr("y2",y(thr)).attr("stroke","#ffb02e66").attr("stroke-dasharray","2 2");
   const line=d3.line().defined((d,i)=>s.mins[i]>=0).x((d,i)=>x(Math.max(0,s.mins[i]))).y(d=>y(d)).curve(d3.curveMonotoneX);
   el.append("path").attr("d",line(vals)).attr("fill","none").attr("stroke",hi?"var(--tamper)":"var(--danger)").attr("stroke-width",1.5);
   el.append("line").attr("id",id.slice(1)+"cur").attr("y1",m).attr("y2",h-m).attr("stroke","var(--idle)").attr("stroke-width",1).attr("x1",x(0)).attr("x2",x(0));
-  el.append("text").attr("x",w-m).attr("y",y(thr)-2).attr("text-anchor","end").attr("fill","var(--muted)").attr("font-size",7.5).attr("font-family","var(--mono)").text(hi?"阈值 1.5":"阈值 5");
-}
+  el.append("text").attr("x",w-m).attr("y",y(thr)-2).attr("text-anchor","end").attr("fill","var(--muted)").attr("font-size",7.5).attr("font-family","var(--mono)").text(hi?"阈值 1.5":"阈值 5");}
 function telCur(tt){["t1","t2"].forEach(id=>{const c=document.getElementById(id+"cur");if(!c)return;const w=$("#"+id).clientWidth||250,m=5,x=m+(w-2*m)*tt/MAXT;c.setAttribute("x1",x);c.setAttribute("x2",x);});}
-function interp(mins,arr,tt){if(tt<=mins[0])return arr[0];if(tt>=mins[mins.length-1])return arr[arr.length-1];let i=d3.bisectLeft(mins,tt);const a=mins[i-1],b=mins[i];return arr[i-1]+(arr[i]-arr[i-1])*(tt-a)/(b-a);}
-function render(tt){
-  t=tt;const s=cur(),vm=vmeta(vec),feas=feasible();
-  $("#gate").classList.toggle("on",!feas);
-  if(deckgl) deckgl.setProps({layers:layers(feas?tt:0)});
-  // KPIs (adaptive)
-  const isT=vm.kind==="tamper", isO=vm.kind==="offline";
-  const prim = !feas?0 : isT?interp(s.mins,s.bill,tt) : isO?Math.round(interp(s.mins,s.ctrl_sites,tt))*0+liveDenied(s,tt) : interp(s.mins,s.ctrl_mw,tt);
-  $("#k0lab").textContent=isT?"计费偏差":isO?"被拒会话":"受控功率";
-  $("#k0u").textContent=isT?" €":isO?" 次":" MW";
-  $("#k0").textContent=isT?prim.toFixed(1):isO?Math.round(prim):prim.toFixed(3);
-  const pf=isT?Math.min(1,prim/120):isO?Math.min(1,prim/120):Math.min(1,prim/PEAK);$("#k0bar").style.width=(pf*100)+"%";
-  const aff=feas?Math.round(interp(s.mins,s.ctrl_sites,tt)):0;
-  $("#k1").innerHTML=aff+'<span class="u"> /'+DATA.meta.n_sites+'</span>';$("#k1bar").style.width=(aff/DATA.meta.n_sites*100)+"%";
-  $("#k2").innerHTML=(feas&&s.t_detect!=null&&tt>=s.t_detect?s.t_detect.toFixed(1):"—")+'<span class="u"> min</span>';
-  $("#k3").innerHTML=(feas&&s.recovery!=null&&tt>=s.recovery?s.recovery.toFixed(1):"—")+'<span class="u"> min</span>';
-  $("#clock").textContent="T+"+tt.toFixed(1).padStart(4,"0");
-  // detector fire
-  const cr=feas?interp(s.mins,s.cmdrate,tt):0, ra=feas?interp(s.mins,s.ratio,tt):1;
-  $("#f1").classList.toggle("on",feas&&tt>=0&&cr>=5);$("#f2").classList.toggle("on",feas&&tt>=0&&(ra<0.5||ra>1.5));
-  telCur(tt);
-  // threat
-  threat(pf,tt,s,feas);
-  renderFeed(tt,feas);
-}
-function liveDenied(s,tt){ // approx denied sessions so far ~ affected fraction * final denied
-  const aff=interp(s.mins,s.ctrl_sites,tt),mx=Math.max(...s.ctrl_sites,1);return s.metrics.denied*aff/mx;}
-function threat(pf,tt,s,feas){
-  let lv=0;if(feas){if(s.recovery!=null&&tt>=s.recovery)lv=0;else if(pf>=.75)lv=4;else if(pf>=.45)lv=3;else if(pf>=.2)lv=2;else if(pf>0.01)lv=1;}
-  const names=["安全","注意","警戒","严重","危急"],cols=["#35d6a0","#39c2d8","#ffb02e","#ff8a3d","#ff4d57"];
-  document.querySelectorAll("#lv i").forEach((e,i)=>e.style.background=i<lv?cols[lv]:"#1b2838");
-  const n=$("#lvname");n.textContent=feas?names[lv]:"阻断";n.style.color=feas?cols[lv]:"#35d6a0";
-}
-function renderFeed(tt,feas){
-  const s=cur(),feed=$("#feed");
-  if(!feas){feed.innerHTML='<div class="ln contain"><span class="ts">—</span><span>该攻击向量在 '+ver+' 下不可行：TLS/证书阻断链路中间人篡改</span></div>';$("#feedstat").textContent="";return;}
-  const sh=s.stream.filter(e=>e.t<=tt);
-  feed.innerHTML=sh.map(e=>`<div class="ln ${e.k}"><span class="ts">T${e.t>=0?"+":""}${e.t.toFixed(1)}</span><span>${e.x}</span></div>`).join("");
-  feed.scrollTop=feed.scrollHeight;$("#feedstat").textContent=sh.length+" / "+s.stream.length+" 条";
-}
 function ticks(){const s=cur(),box=$("#ticks");box.innerHTML="";const mk=(tt,c,x)=>{const d=document.createElement("div");d.className="tick "+c;d.style.left=(tt/MAXT*100)+"%";d.textContent=x;box.appendChild(d);};
   mk(0,"atk","攻击");if(feasible()&&s.t_detect!=null)mk(s.t_detect,"detect","检测");if(feasible()&&s.recovery!=null)mk(s.recovery,"rec","隔离");[15,30,45,60].forEach(v=>mk(v,"",v));}
 function verdict(){const m=cur().metrics,vm=vmeta(vec);if(!feasible()){$("#verdict").innerHTML="<b>攻击被协议阻断</b>：TLS/证书使链路中间人篡改不可行，无损失。";return;}
-  const prim=vm.kind==="tamper"?`计费偏差 <b>${m.billing_eur} €</b>`:vm.kind==="offline"?`被拒会话 <b>${m.denied}</b>`:`残余受控电量 <b>${m.dE_kwh} kWh</b>`;
-  $("#verdict").innerHTML=prim+` · 受影响 <b>${m.n_affected}</b> 站`+(m.tau_d!=null?` · 检测 <b>${m.tau_d}min</b>`:"")+(m.recovery!=null?` · 恢复 <b>${m.recovery}min</b>`:" · 未遏制");}
-function refresh(){ticks();verdict();tele("#t1","cmdrate",5,false);tele("#t2","ratio",1.5,true);render(+$("#scrub").value);}
-// build selectors
-function seg(host,items,getK,cb){items.forEach(it=>{const b=document.createElement("button");b.textContent=it.label;b.dataset.k=it.key;b.onclick=()=>{cb(it.key);document.querySelectorAll(host+" button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===getK()));};host&&$(host).appendChild(b);});
+  const p=vm.kind==="tamper"?`计费偏差 <b>${m.billing_eur} €</b>`:vm.kind==="offline"?`被拒会话 <b>${m.denied}</b>`:`残余受控电量 <b>${m.dE_kwh} kWh</b>`;
+  $("#verdict").innerHTML=p+` · 受影响 <b>${m.n_affected}</b> 站`+(m.tau_d!=null?` · 检测 <b>${m.tau_d}min</b>`:"")+(m.recovery!=null?` · 恢复 <b>${m.recovery}min</b>`:" · 未遏制");}
+function refresh(){ticks();verdict();tele("#t1","cmdrate",5,false);tele("#t2","ratio",1.5,true);updateState(+$("#scrub").value);}
+function seg(host,items,getK,cb){items.forEach(it=>{const b=document.createElement("button");b.textContent=it.label;b.dataset.k=it.key;b.onclick=()=>{cb(it.key);document.querySelectorAll(host+" button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===getK()));};$(host).appendChild(b);});
   document.querySelectorAll(host+" button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===getK()));}
-seg("#segV",VECS,()=>vec,k=>{vec=k;refresh();});
-seg("#segD",DEFS,()=>def,k=>{def=k;refresh();});
-seg("#segP",VERS,()=>ver,k=>{ver=k;refresh();});
-$("#foot").textContent=`真实 OCPP 1.6 仿真 · ${DATA.meta.day} 16–22 时 · ${DATA.meta.n_sites} 站 · deck.gl 3D (WGS84) · 柱高/弧/底色/报文均由仿真逐站事件驱动`;
-// transport
+seg("#segV",VECS,()=>vec,k=>{vec=k;refresh();});seg("#segD",DEFS,()=>def,k=>{def=k;refresh();});seg("#segP",VERS,()=>ver,k=>{ver=k;refresh();});
+$("#foot").textContent=`真实 OCPP 1.6 仿真 · ${DATA.meta.day} 16–22 时 · ${NS} 站 · Three.js 3D · 柱高/攻击线/底色/报文均由仿真逐站事件驱动`;
 let playing=false,last=0;const scrub=$("#scrub");
-function step(ts){if(!playing)return;const dt=(ts-last)/1000;last=ts;let tt=+scrub.value+dt*(+$("#speed").value);if(tt>=MAXT){tt=MAXT;playing=false;$("#play").textContent="▶ 重播";}scrub.value=tt;render(tt);if(playing)requestAnimationFrame(step);}
-$("#play").onclick=()=>{if(+scrub.value>=MAXT)scrub.value=0;playing=!playing;$("#play").textContent=playing?"⏸ 暂停":"▶ 播放";if(playing){last=performance.now();requestAnimationFrame(step);}};
-scrub.oninput=()=>{playing=false;$("#play").textContent="▶ 播放";render(+scrub.value);};
+$("#play").onclick=()=>{if(+scrub.value>=MAXT)scrub.value=0;playing=!playing;$("#play").textContent=playing?"⏸ 暂停":"▶ 播放";last=performance.now();};
+scrub.oninput=()=>{playing=false;$("#play").textContent="▶ 播放";updateState(+scrub.value);};
 addEventListener("resize",()=>{clearTimeout(window._rz);window._rz=setTimeout(()=>{tele("#t1","cmdrate",5,false);tele("#t2","ratio",1.5,true);},160);});
-initDeck();refresh();
+const ok=initThree();refresh();
 </script>
