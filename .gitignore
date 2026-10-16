@@ -1,1 +1,2 @@
 *.pdf
+ocpp_sim/__pycache__/

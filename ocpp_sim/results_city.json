@@ -1,0 +1,622 @@
+{
+ "city": {
+  "n_loc": 621,
+  "n_operators": 39,
+  "mw": 73.06,
+  "amb_cell": 71,
+  "day": "2025-12-05"
+ },
+ "operators": [
+  {
+   "op": "ENDESA X WAY, S.L.",
+   "short": "Endesa X Way",
+   "mw": 12.336,
+   "n_loc": 107,
+   "share": 0.1688
+  },
+  {
+   "op": "IBERDROLA CLIENTES S.A.U",
+   "short": "Iberdrola",
+   "mw": 9.75,
+   "n_loc": 71,
+   "share": 0.1335
+  },
+  {
+   "op": "AMB公共网络",
+   "short": "AMB 公共网络",
+   "mw": 9.59,
+   "n_loc": 71,
+   "share": 0.1313
+  },
+  {
+   "op": "BARCELONA DE SERVEIS MUNICIPALS, SA",
+   "short": "BSM-Endolla",
+   "mw": 8.667,
+   "n_loc": 138,
+   "share": 0.1186
+  },
+  {
+   "op": "REPSOL SOLUCIONES ENERGÉTICAS SA",
+   "short": "Repsol",
+   "mw": 4.521,
+   "n_loc": 62,
+   "share": 0.0619
+  },
+  {
+   "op": "CHARG-ELECTRA SPAIN SL",
+   "short": "CHARG-ELECTRA SP",
+   "mw": 4.0,
+   "n_loc": 3,
+   "share": 0.0547
+  },
+  {
+   "op": "CHARGING TOGETHER SL",
+   "short": "CHARGING TOGETHE",
+   "mw": 3.4,
+   "n_loc": 9,
+   "share": 0.0465
+  },
+  {
+   "op": "Etecnic Movilidad Electrica, SRL",
+   "short": "Etecnic",
+   "mw": 2.726,
+   "n_loc": 40,
+   "share": 0.0373
+  },
+  {
+   "op": "Punto Recargas SL",
+   "short": "Punto Recargas S",
+   "mw": 2.641,
+   "n_loc": 8,
+   "share": 0.0361
+  },
+  {
+   "op": "Tesla Spain SLU",
+   "short": "Tesla Spain SLU",
+   "mw": 2.4,
+   "n_loc": 2,
+   "share": 0.0328
+  },
+  {
+   "op": "IONITY GmbH Sucursal en España",
+   "short": "IONITY GmbH Sucu",
+   "mw": 2.1,
+   "n_loc": 1,
+   "share": 0.0287
+  },
+  {
+   "op": "ELECSUM FOTOVOLTAICA, S.L.U.",
+   "short": "ELECSUM FOTOVOLT",
+   "mw": 1.549,
+   "n_loc": 5,
+   "share": 0.0212
+  },
+  {
+   "op": "MAKSU ESPAÑA SL",
+   "short": "MAKSU ESPAÑA SL",
+   "mw": 1.276,
+   "n_loc": 8,
+   "share": 0.0175
+  },
+  {
+   "op": "BONPREU, S.A.U.",
+   "short": "BONPREU, S.A.U.",
+   "mw": 1.082,
+   "n_loc": 4,
+   "share": 0.0148
+  },
+  {
+   "op": "Wenea Services Spain, S.L.",
+   "short": "Wenea",
+   "mw": 0.947,
+   "n_loc": 17,
+   "share": 0.013
+  },
+  {
+   "op": "Galp Energía España, S.A.U.",
+   "short": "Galp",
+   "mw": 0.768,
+   "n_loc": 10,
+   "share": 0.0105
+  },
+  {
+   "op": "CEPSA COMERCIAL PETRÓLEO,S.A.U.",
+   "short": "CEPSA COMERCIAL ",
+   "mw": 0.75,
+   "n_loc": 3,
+   "share": 0.0103
+  },
+  {
+   "op": "Ditec Automoviles Barcelona S.L.U.",
+   "short": "Ditec Automovile",
+   "mw": 0.64,
+   "n_loc": 1,
+   "share": 0.0088
+  },
+  {
+   "op": "P-APP & WEB SERVICIOS DIGITALES S.L.U.",
+   "short": "P-APP & WEB SERV",
+   "mw": 0.592,
+   "n_loc": 8,
+   "share": 0.0081
+  },
+  {
+   "op": "Atlante Iberia S.L.",
+   "short": "Atlante Iberia S",
+   "mw": 0.57,
+   "n_loc": 2,
+   "share": 0.0078
+  },
+  {
+   "op": "The F Charging Espana S.L.U.",
+   "short": "The F Charging E",
+   "mw": 0.432,
+   "n_loc": 6,
+   "share": 0.0059
+  },
+  {
+   "op": "ACCIONA Recarga",
+   "short": "ACCIONA Recarga",
+   "mw": 0.416,
+   "n_loc": 2,
+   "share": 0.0057
+  },
+  {
+   "op": "ERANOVUM E-MOBILITY, S.L.",
+   "short": "ERANOVUM E-MOBIL",
+   "mw": 0.346,
+   "n_loc": 6,
+   "share": 0.0047
+  },
+  {
+   "op": "Prio Recharge Sl.",
+   "short": "Prio Recharge Sl",
+   "mw": 0.3,
+   "n_loc": 1,
+   "share": 0.0041
+  },
+  {
+   "op": "APK ELECTRIC, S.L.",
+   "short": "APK ELECTRIC, S.",
+   "mw": 0.173,
+   "n_loc": 3,
+   "share": 0.0024
+  },
+  {
+   "op": "Allego Spain S.L.U",
+   "short": "Allego Spain S.L",
+   "mw": 0.15,
+   "n_loc": 3,
+   "share": 0.0021
+  },
+  {
+   "op": "CENTROS COMERCIALES CARREFOUR SA",
+   "short": "CENTROS COMERCIA",
+   "mw": 0.15,
+   "n_loc": 1,
+   "share": 0.0021
+  },
+  {
+   "op": "REMO SUSTAINABLE MOBILITY S.L",
+   "short": "REMO SUSTAINABLE",
+   "mw": 0.15,
+   "n_loc": 1,
+   "share": 0.0021
+  },
+  {
+   "op": "Electrica Sollerense SA",
+   "short": "Electrica Soller",
+   "mw": 0.125,
+   "n_loc": 5,
+   "share": 0.0017
+  },
+  {
+   "op": "ZERO CARBON EMOBILITY, S.L.",
+   "short": "ZERO CARBON EMOB",
+   "mw": 0.12,
+   "n_loc": 1,
+   "share": 0.0016
+  },
+  {
+   "op": "TotalEnergies Charging Services España, SLU",
+   "short": "TotalEnergies Ch",
+   "mw": 0.07,
+   "n_loc": 5,
+   "share": 0.001
+  },
+  {
+   "op": "EDP CLIENTES SAU",
+   "short": "EDP CLIENTES SAU",
+   "mw": 0.07,
+   "n_loc": 4,
+   "share": 0.001
+  },
+  {
+   "op": "FACTOR ENERGIA, SA",
+   "short": "FACTOR ENERGIA, ",
+   "mw": 0.066,
+   "n_loc": 2,
+   "share": 0.0009
+  },
+  {
+   "op": "Emovili Fast, S.L.",
+   "short": "Emovili Fast, S.",
+   "mw": 0.059,
+   "n_loc": 4,
+   "share": 0.0008
+  },
+  {
+   "op": "WENEA EMOBILITY SERVICES S.L.",
+   "short": "WENEA EMOBILITY ",
+   "mw": 0.044,
+   "n_loc": 3,
+   "share": 0.0006
+  },
+  {
+   "op": "INMOMEDIC 09, S.L.U.",
+   "short": "INMOMEDIC 09, S.",
+   "mw": 0.03,
+   "n_loc": 1,
+   "share": 0.0004
+  },
+  {
+   "op": "EFICIENCIA Y SERVICIOS RENOVABLES SL",
+   "short": "EFICIENCIA Y SER",
+   "mw": 0.022,
+   "n_loc": 1,
+   "share": 0.0003
+  },
+  {
+   "op": "FENIE ENERGIA, SA",
+   "short": "FENIE ENERGIA, S",
+   "mw": 0.022,
+   "n_loc": 1,
+   "share": 0.0003
+  },
+  {
+   "op": "Ingenieria de Recarga SLU",
+   "short": "Ingenieria de Re",
+   "mw": 0.007,
+   "n_loc": 1,
+   "share": 0.0001
+  }
+ ],
+ "s1_single_backend": [
+  {
+   "op": "ENDESA X WAY, S.L.",
+   "short": "Endesa X Way",
+   "mw": 12.336,
+   "n_loc": 107,
+   "share": 0.1688,
+   "d0_dE": 3927.8,
+   "d0_aff": 107,
+   "d0_ctrlMW": 1.877,
+   "iso_dE": 6.6,
+   "iso_aff": 30,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  },
+  {
+   "op": "IBERDROLA CLIENTES S.A.U",
+   "short": "Iberdrola",
+   "mw": 9.75,
+   "n_loc": 71,
+   "share": 0.1335,
+   "d0_dE": 2116.2,
+   "d0_aff": 71,
+   "d0_ctrlMW": 0.977,
+   "iso_dE": 4.6,
+   "iso_aff": 30,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  },
+  {
+   "op": "AMB公共网络",
+   "short": "AMB 公共网络",
+   "mw": 9.59,
+   "n_loc": 71,
+   "share": 0.1313,
+   "d0_dE": 2115.1,
+   "d0_aff": 71,
+   "d0_ctrlMW": 0.886,
+   "iso_dE": 9.7,
+   "iso_aff": 30,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  },
+  {
+   "op": "BARCELONA DE SERVEIS MUNICIPALS, SA",
+   "short": "BSM-Endolla",
+   "mw": 8.667,
+   "n_loc": 138,
+   "share": 0.1186,
+   "d0_dE": 2523.4,
+   "d0_aff": 138,
+   "d0_ctrlMW": 1.258,
+   "iso_dE": 2.7,
+   "iso_aff": 30,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  },
+  {
+   "op": "REPSOL SOLUCIONES ENERGÉTICAS SA",
+   "short": "Repsol",
+   "mw": 4.521,
+   "n_loc": 62,
+   "share": 0.0619,
+   "d0_dE": 1206.7,
+   "d0_aff": 62,
+   "d0_ctrlMW": 0.548,
+   "iso_dE": 2.9,
+   "iso_aff": 30,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  },
+  {
+   "op": "CHARG-ELECTRA SPAIN SL",
+   "short": "CHARG-ELECTRA SP",
+   "mw": 4.0,
+   "n_loc": 3,
+   "share": 0.0547,
+   "d0_dE": 326.7,
+   "d0_aff": 3,
+   "d0_ctrlMW": 0.322,
+   "iso_dE": 1.5,
+   "iso_aff": 3,
+   "tau_d": 1.0,
+   "recovery": 2.0
+  },
+  {
+   "op": "CHARGING TOGETHER SL",
+   "short": "CHARGING TOGETHE",
+   "mw": 3.4,
+   "n_loc": 9,
+   "share": 0.0465,
+   "d0_dE": 746.5,
+   "d0_aff": 9,
+   "d0_ctrlMW": 0.43,
+   "iso_dE": 3.5,
+   "iso_aff": 9,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  },
+  {
+   "op": "Etecnic Movilidad Electrica, SRL",
+   "short": "Etecnic",
+   "mw": 2.726,
+   "n_loc": 40,
+   "share": 0.0373,
+   "d0_dE": 742.8,
+   "d0_aff": 40,
+   "d0_ctrlMW": 0.304,
+   "iso_dE": 2.2,
+   "iso_aff": 30,
+   "tau_d": 0.0,
+   "recovery": 1.0
+  }
+ ],
+ "s2_campaign": [
+  {
+   "k": 1,
+   "ops": [
+    "Endesa X Way"
+   ],
+   "mw": 12.336,
+   "d0_dE": 3927.8,
+   "d0_aff": 107,
+   "d0_ctrlMW": 1.877,
+   "iso_dE": 6.6,
+   "iso_aff": 30
+  },
+  {
+   "k": 2,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola"
+   ],
+   "mw": 22.086,
+   "d0_dE": 6044.0,
+   "d0_aff": 178,
+   "d0_ctrlMW": 2.756,
+   "iso_dE": 11.2,
+   "iso_aff": 60
+  },
+  {
+   "k": 3,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola",
+    "AMB 公共网络"
+   ],
+   "mw": 31.676,
+   "d0_dE": 8159.1,
+   "d0_aff": 249,
+   "d0_ctrlMW": 3.614,
+   "iso_dE": 20.9,
+   "iso_aff": 90
+  },
+  {
+   "k": 4,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola",
+    "AMB 公共网络",
+    "BSM-Endolla"
+   ],
+   "mw": 40.343,
+   "d0_dE": 10682.5,
+   "d0_aff": 387,
+   "d0_ctrlMW": 4.872,
+   "iso_dE": 23.6,
+   "iso_aff": 120
+  },
+  {
+   "k": 5,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola",
+    "AMB 公共网络",
+    "BSM-Endolla",
+    "Repsol"
+   ],
+   "mw": 44.864,
+   "d0_dE": 11889.2,
+   "d0_aff": 449,
+   "d0_ctrlMW": 5.42,
+   "iso_dE": 26.5,
+   "iso_aff": 150
+  },
+  {
+   "k": 6,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola",
+    "AMB 公共网络",
+    "BSM-Endolla",
+    "Repsol",
+    "CHARG-ELECTRA SP"
+   ],
+   "mw": 48.864,
+   "d0_dE": 12215.9,
+   "d0_aff": 452,
+   "d0_ctrlMW": 5.55,
+   "iso_dE": 28.0,
+   "iso_aff": 153
+  },
+  {
+   "k": 7,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola",
+    "AMB 公共网络",
+    "BSM-Endolla",
+    "Repsol",
+    "CHARG-ELECTRA SP",
+    "CHARGING TOGETHE"
+   ],
+   "mw": 52.264,
+   "d0_dE": 12962.5,
+   "d0_aff": 461,
+   "d0_ctrlMW": 5.794,
+   "iso_dE": 31.5,
+   "iso_aff": 162
+  },
+  {
+   "k": 8,
+   "ops": [
+    "Endesa X Way",
+    "Iberdrola",
+    "AMB 公共网络",
+    "BSM-Endolla",
+    "Repsol",
+    "CHARG-ELECTRA SP",
+    "CHARGING TOGETHE",
+    "Etecnic"
+   ],
+   "mw": 54.99,
+   "d0_dE": 13705.3,
+   "d0_aff": 501,
+   "d0_ctrlMW": 6.097,
+   "iso_dE": 33.7,
+   "iso_aff": 192
+  }
+ ],
+ "s3_vectors_top3": {
+  "curtail": {
+   "label": "A3 限功率",
+   "none": {
+    "dE": 8159.1,
+    "billing": 0.0,
+    "denied": 347,
+    "aff": 249,
+    "ctrlMW": 3.614
+   },
+   "iso": {
+    "dE": 20.9,
+    "billing": 0.0,
+    "denied": 85,
+    "aff": 90,
+    "ctrlMW": 1.253
+   },
+   "rliso": {
+    "dE": 11.7,
+    "billing": 0.0,
+    "denied": 21,
+    "aff": 18,
+    "ctrlMW": 0.327
+   }
+  },
+  "remote_stop": {
+   "label": "A3 批量停充",
+   "none": {
+    "dE": 8159.1,
+    "billing": 0.0,
+    "denied": 347,
+    "aff": 249,
+    "ctrlMW": 3.614
+   },
+   "iso": {
+    "dE": 20.9,
+    "billing": 0.0,
+    "denied": 85,
+    "aff": 90,
+    "ctrlMW": 1.253
+   },
+   "rliso": {
+    "dE": 11.7,
+    "billing": 0.0,
+    "denied": 21,
+    "aff": 18,
+    "ctrlMW": 0.327
+   }
+  },
+  "mitm_meter": {
+   "label": "A1 篡改电表",
+   "none": {
+    "dE": 0.0,
+    "billing": 2937.3,
+    "denied": 0,
+    "aff": 249,
+    "ctrlMW": 0.0
+   },
+   "iso": {
+    "dE": 0.0,
+    "billing": 26.7,
+    "denied": 0,
+    "aff": 221,
+    "ctrlMW": 0.0
+   },
+   "rliso": {
+    "dE": 0.0,
+    "billing": 88.2,
+    "denied": 0,
+    "aff": 96,
+    "ctrlMW": 0.0
+   }
+  },
+  "dos": {
+   "label": "A4 DoS 洪泛",
+   "none": {
+    "dE": 8159.1,
+    "billing": 0.0,
+    "denied": 347,
+    "aff": 249,
+    "ctrlMW": 3.614
+   },
+   "iso": {
+    "dE": 20.9,
+    "billing": 0.0,
+    "denied": 85,
+    "aff": 90,
+    "ctrlMW": 1.253
+   },
+   "rliso": {
+    "dE": 11.7,
+    "billing": 0.0,
+    "denied": 21,
+    "aff": 18,
+    "ctrlMW": 0.327
+   }
+  }
+ }
+}
