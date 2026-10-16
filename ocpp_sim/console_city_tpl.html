@@ -1,0 +1,313 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>城市级 OCPP 攻防指挥台</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#060a10;--panel:#101a27;--panel2:#0c131d;--line:#223040;--fg:#dce7f3;--muted:#7f90a6;
+  --idle:#39c2d8;--danger:#ff4d57;--warn:#ffb02e;--ok:#35d6a0;--accent:#4ea1ff;--csms:#c58bff;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;--disp:"Oxanium",system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+  --body:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;color-scheme:dark;
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:radial-gradient(1100px 650px at 74% -12%,#0e1a2855,transparent 60%),var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden}
+.wrap{display:flex;flex-direction:column;height:100%;gap:8px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-block:10px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.brand{display:flex;align-items:baseline;gap:8px;min-width:0}
+.brand h1{font-family:var(--disp);font-weight:700;font-size:clamp(13px,2.1vw,18px);letter-spacing:.04em;margin:0;white-space:nowrap}
+.brand .sub{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.live{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;color:var(--danger);text-transform:uppercase;letter-spacing:.1em;padding:3px 7px;border:1px solid #ff4d5740;border-radius:999px;background:#ff4d5712}
+.live b{width:6px;height:6px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px var(--danger);animation:bl 1.1s infinite}
+@keyframes bl{50%{opacity:.25}}
+.controls{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.ctl{display:flex;align-items:center;gap:6px}.ctl .lab{letter-spacing:.06em}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2);flex-wrap:wrap}
+.seg button{font-family:var(--mono);font-size:10.5px;color:var(--muted);background:none;border:0;padding:6px 9px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed=true]{color:#06121a;background:var(--idle);font-weight:600}
+.transport{display:flex;align-items:center;gap:8px;flex:1;min-width:230px}
+.play{font-family:var(--mono);font-size:12px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;min-width:78px}.play:hover{border-color:var(--idle)}
+.clock{font-family:var(--mono);font-size:12.5px;color:var(--idle);min-width:88px;font-variant-numeric:tabular-nums}
+.scrub{position:relative;flex:1;min-width:0}
+input[type=range]{width:100%;accent-color:var(--idle);cursor:pointer}
+.ticks{position:relative;height:14px;margin-top:1px;font-family:var(--mono);font-size:8.5px;color:var(--muted)}
+.tick{position:absolute;transform:translateX(-50%);white-space:nowrap}.tick::before{content:"";position:absolute;top:-6px;left:50%;width:1px;height:5px;background:var(--line)}
+.tick.detect{color:var(--warn)}.tick.detect::before{background:var(--warn)}.tick.rec{color:var(--ok)}.tick.rec::before{background:var(--ok)}.tick.atk{color:var(--danger)}.tick.atk::before{background:var(--danger)}
+select{font-family:var(--mono);font-size:10px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 6px;max-width:230px}
+.threat{display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 10px}
+.threat .lab{font-family:var(--mono);font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+.threat .lv{display:flex;gap:3px;flex:1}.threat .lv i{flex:1;height:7px;border-radius:2px;background:#1b2838;transition:background .25s}
+.threat .name{font-family:var(--disp);font-weight:700;font-size:12px;min-width:60px;text-align:right}
+.main{display:grid;grid-template-columns:1fr 300px;gap:8px;flex:1;min-height:0}
+.stage{position:relative;background:#081019;border:1px solid var(--line);border-radius:11px;overflow:hidden;min-width:0}
+#view{width:100%;height:100%;display:block;cursor:grab}#view:active{cursor:grabbing}
+.legend{position:absolute;left:10px;bottom:9px;display:flex;flex-direction:column;gap:3px;background:#0a111ae0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:9px;pointer-events:none;max-width:210px}
+.legend .row{display:flex;align-items:center;gap:6px;color:var(--muted)}.dot{width:8px;height:8px;border-radius:2px;flex:none}
+.hintbar{position:absolute;right:10px;top:9px;font-family:var(--mono);font-size:9px;color:var(--muted);background:#0a111ae0;border:1px solid var(--line);border-radius:7px;padding:5px 8px;pointer-events:none;text-align:right}
+.tip3{position:fixed;pointer-events:none;background:#0a1019;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:11px;color:var(--fg);z-index:30;max-width:240px;opacity:0;transition:opacity .1s}.tip3 b{color:var(--idle)}
+.rail{display:flex;flex-direction:column;gap:7px;min-height:0;overflow:auto}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 9px;position:relative;overflow:hidden}
+.kpi .k{font-family:var(--mono);font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.kpi .v{font-family:var(--disp);font-weight:700;font-size:18px;margin-top:2px;font-variant-numeric:tabular-nums}.kpi .u{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.kpi.p .v{color:var(--danger)}.kpi.s .v{color:var(--warn)}.kpi.d .v{color:var(--idle)}.kpi.r .v{color:var(--ok)}
+.kpi .bar{position:absolute;left:0;bottom:0;height:3px;background:currentColor;opacity:.85;transition:width .2s}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+.card h3{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:0 0 5px;display:flex;justify-content:space-between}
+.oplist{font-family:var(--mono);font-size:9.5px;line-height:1.7}
+.oplist .orow{display:flex;align-items:center;gap:6px;color:var(--muted);cursor:pointer;padding:1px 3px;border-radius:4px}
+.oplist .orow:hover{background:#17222f}.oplist .orow.sel{color:var(--fg);background:#1b2a3a}
+.oplist .orow .mw{margin-left:auto;font-variant-numeric:tabular-nums}
+.verdict{font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5}.verdict b{color:var(--fg)}
+.term{background:#070d14;border:1px solid var(--line);border-radius:9px;display:flex;flex-direction:column;min-height:0}
+.term .bar{display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:9.5px;color:var(--muted)}
+.term .bar .d{width:8px;height:8px;border-radius:50%;background:#2a3645}.term .bar .t{color:var(--idle);text-transform:uppercase;letter-spacing:.09em}
+.feed{font-family:var(--mono);font-size:11px;line-height:1.45;padding:5px 10px;overflow:auto;height:96px}
+.feed .ln{display:flex;gap:8px;color:var(--muted);white-space:nowrap}.feed .ln .ts{color:#5b6c82;min-width:56px;font-variant-numeric:tabular-nums}
+.feed .ln.ok{color:#8fb0c9}.feed .ln.atk{color:var(--danger)}.feed .ln.alarm{color:var(--warn)}.feed .ln.contain{color:var(--ok)}
+.foot{font-family:var(--mono);font-size:8.5px;color:var(--muted);text-align:center}
+@media (max-width:860px){.main{grid-template-columns:1fr;grid-template-rows:minmax(300px,1fr) auto}.rail{flex-direction:row;flex-wrap:wrap;overflow:visible}.kpis{flex:1;min-width:200px}.card{flex:1;min-width:180px}}
+@media (prefers-reduced-motion:reduce){.live b{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>巴塞罗那大都会区 · 城市级 OCPP 攻防指挥台</h1><span class="sub" id="sub">真实多运营商仿真</span></div>
+    <span class="live"><b></b>LIVE</span>
+    <div class="transport">
+      <button class="play" id="play">▶ 播放</button><span class="clock" id="clock">T+00.0</span>
+      <div class="scrub"><input type="range" id="scrub" min="0" max="6" step="0.05" value="0" aria-label="时间轴"><div class="ticks" id="ticks"></div></div>
+      <select id="speed" aria-label="速度"><option value="0.6">1×</option><option value="1.2" selected>2×</option><option value="2.4">4×</option></select>
+    </div>
+  </header>
+  <div class="controls">
+    <div class="ctl"><span class="lab">被攻破后台</span><select id="selOp" aria-label="被攻破后台"></select></div>
+    <div class="ctl"><span class="lab">防御</span><div class="seg" id="segD"></div></div>
+  </div>
+  <div class="threat"><span class="lab">威胁等级</span><div class="lv" id="lv"><i></i><i></i><i></i><i></i><i></i></div><span class="name" id="lvname">安全</span></div>
+  <div class="main">
+    <div class="stage" id="stage">
+      <canvas id="view"></canvas>
+      <div class="legend">
+        <div class="row"><span class="dot" style="background:var(--idle)"></span>正常（高/点∝额定功率）</div>
+        <div class="row"><span class="dot" style="background:#45566b"></span>未被攻破的其他后台</div>
+        <div class="row"><span class="dot" style="background:var(--danger)"></span>被控（限功率/停充）</div>
+        <div class="row"><span class="dot" style="background:var(--ok)"></span>已隔离/恢复</div>
+        <div class="row"><span class="dot" style="background:var(--csms)"></span>CSMS · 红线=攻击扇出</div>
+      </div>
+      <div class="hintbar" id="hint">拖拽旋转 · 滚轮缩放<br>市镇底色∝受控功率</div>
+    </div>
+    <div class="rail">
+      <div class="kpis">
+        <div class="kpi p"><div class="k">城市受控功率</div><div class="v"><span id="k0">0.00</span><span class="u"> MW</span></div><div class="bar" id="k0bar" style="width:0"></div></div>
+        <div class="kpi s"><div class="k">受影响站点</div><div class="v" id="k1">0<span class="u" id="k1u"> /621</span></div><div class="bar" id="k1bar" style="width:0"></div></div>
+        <div class="kpi d"><div class="k">被发现前 ΔE</div><div class="v" id="k2">0<span class="u"> kWh</span></div></div>
+        <div class="kpi r"><div class="k">受影响市镇</div><div class="v" id="k3">0<span class="u"> 个</span></div></div>
+      </div>
+      <div class="card"><h3>控制平面碎片化 · 单后台爆炸半径</h3><div class="oplist" id="oplist"></div></div>
+      <div class="card"><h3>本场景实测结局</h3><div class="verdict" id="verdict"></div></div>
+    </div>
+  </div>
+  <div class="term"><div class="bar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="t">OCPP 1.6 报文流 · 多运营商 CSMS</span><span id="feedstat" style="margin-left:auto"></span></div><div class="feed" id="feed"></div></div>
+  <div class="foot" id="foot"></div>
+</div>
+<div class="tip3" id="tip3"></div>
+
+<script>/*__GEO__*/</script>
+<script>/*__RES__*/</script>
+<script>
+const $=s=>document.querySelector(s);
+const SITES=GEO.geo.sites,MUNI=GEO.geo.muni,OPS=RES.operators,S1=RES.s1_single_backend,S2=RES.s2_campaign,CITY=RES.city;
+const RATE=30;
+const OPCOLS=["#ff4d57","#ffb02e","#c58bff","#35d6a0","#39c2d8","#f26fb8","#9bd14a","#6f8cff"];
+const TOP=S1.map(x=>x.op),OPCOL={};TOP.forEach((o,i)=>OPCOL[o]=OPCOLS[i%OPCOLS.length]);
+const shortOf={};OPS.forEach(o=>shortOf[o.op]=o.short);
+const COL={idle:"#39c2d8",other:"#45566b",cut:"#ff4d57",rec:"#35d6a0",csms:"#c58bff"};
+function hex(c){return parseInt(c.slice(1),16);}
+// ---- scenarios ----
+function buildScenarios(){const sc=[];
+  S1.forEach(r=>sc.push({key:"op:"+r.op,label:"攻破 "+r.short+" ("+r.mw+" MW)",ops:[r.op],
+     d0:{dE:r.d0_dE,aff:r.d0_aff},iso:{dE:r.iso_dE,aff:r.iso_aff},tau_d:r.tau_d==null?0:r.tau_d,mw:r.mw,share:r.share}));
+  [3,5,8].forEach(k=>{const r=S2.find(x=>x.k===k);if(!r)return;
+     sc.push({key:"k:"+k,label:"协同攻破前 "+k+" 家后台 ("+r.mw.toFixed(1)+" MW)",ops:TOP.slice(0,k),
+     d0:{dE:r.d0_dE,aff:r.d0_aff},iso:{dE:r.iso_dE,aff:r.iso_aff},tau_d:0,mw:r.mw,share:r.mw/CITY.mw});});
+  return sc;}
+const SCEN=buildScenarios();
+let scIdx=0,def="iso",t=0,MAXT=6,MODE="2d";
+const cur=()=>SCEN[scIdx];
+let SCHED={};
+function siteSchedule(){const order={};cur().ops.forEach(op=>{const list=SITES.filter(s=>s.opfull===op);list.forEach((s,i)=>order[s.lid]=i/RATE);});return order;}
+const tauD=()=>cur().tau_d;
+const recov=()=>def==="iso"?tauD()+1:null;
+function stateOf(lid,tt){const ct=SCHED[lid];if(ct==null)return"idle";if(tt<ct)return"idle";
+  const rc=recov();if(rc!=null&&tt>=rc)return"rec";if(def==="iso"&&ct>tauD())return"idle";return"cut";}
+function colState(st,op){return st==="cut"?COL.cut:st==="rec"?COL.rec:(OPCOL[op]||COL.other);}
+// ---- projection ----
+const lons=SITES.map(s=>s.lon),lats=SITES.map(s=>s.lat);
+const cLon=(Math.min(...lons)+Math.max(...lons))/2,cLat=(Math.min(...lats)+Math.max(...lats))/2,kx=Math.cos(cLat*Math.PI/180);
+let SC=1;(function(){const w=(Math.max(...lons)-Math.min(...lons))*kx,h=Math.max(...lats)-Math.min(...lats);SC=78/Math.max(w,h);})();
+const PX=(lo,la)=>[(lo-cLon)*kx*SC,-(la-cLat)*SC];                       // world units (3D plane x,z)
+const csmsP=[0,Math.min(...SITES.map(s=>PX(s.lon,s.lat)[1]))-7];
+const CAPMAX=Math.max(...SITES.map(s=>s.cap));const HS=22/Math.sqrt(CAPMAX);
+const barH=(cap,st)=>{const base=Math.max(0.4,Math.sqrt(cap)*HS);return st==="cut"?Math.max(0.3,base*0.12):base;};
+
+// ---- shared state computation (renderer-independent) ----
+function computeStates(tt){const states={};let ncut=0,ctrlMW=0;const muniHit=new Set(),muniAgg={};
+  SITES.forEach(s=>{const st=stateOf(s.lid,tt);states[s.lid]=st;const nm=s.muni||"";
+    muniAgg[nm]=muniAgg[nm]||{c:0,t:0};muniAgg[nm].t+=s.cap;
+    if(st==="cut"){ncut++;ctrlMW+=s.cap/1000;muniAgg[nm].c+=s.cap;muniHit.add(nm);}});
+  return {states,ncut,ctrlMW,muniHit,muniAgg};}
+
+// ====================== 3D renderer (Three.js) ======================
+let scene,cam,renderer,raycaster,bars=[],muniMesh3=[],attackLines,csmsMesh;
+let az=-0.5,el=0.64,R=105,target,dragging=false,px=0,py=0;
+function initThree(){
+  if(typeof THREE==="undefined")return false;
+  const cv=$("#view");let rok=true;
+  try{renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});}catch(e){rok=false;}
+  if(!rok||!renderer)return false;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x081019);scene.fog=new THREE.Fog(0x081019,140,300);
+  cam=new THREE.PerspectiveCamera(45,1,0.1,2000);target=new THREE.Vector3(0,2,0);
+  scene.add(new THREE.AmbientLight(0x90a4bd,0.9));
+  const dl=new THREE.DirectionalLight(0xffffff,0.7);dl.position.set(40,80,30);scene.add(dl);
+  const dl2=new THREE.DirectionalLight(0x4ea1ff,0.3);dl2.position.set(-40,40,-30);scene.add(dl2);
+  const gp=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshBasicMaterial({color:0x070d15}));gp.rotation.x=-Math.PI/2;gp.position.y=-0.05;scene.add(gp);
+  MUNI.forEach(m=>{const polys=m.geometry.type==="MultiPolygon"?m.geometry.coordinates:[m.geometry.coordinates];
+    polys.forEach(pg=>{const ring=pg[0];if(!ring||ring.length<3)return;
+      const shape=new THREE.Shape(ring.map(p=>{const[x,z]=PX(p[0],p[1]);return new THREE.Vector2(x,z);}));
+      const geo=new THREE.ShapeGeometry(shape);geo.rotateX(Math.PI/2);
+      const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0x0e1823,transparent:true,opacity:0.92,side:THREE.DoubleSide}));scene.add(mesh);
+      muniMesh3.push({mesh,name:m.properties.nommuni});
+      const pts=ring.map(p=>{const[x,z]=PX(p[0],p[1]);return new THREE.Vector3(x,0.02,z);});
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x24303f})));});});
+  const gb=new THREE.BoxGeometry(1,1,1);
+  SITES.forEach(s=>{const[x,z]=PX(s.lon,s.lat);const bw=s.top?1.1:0.8;
+    const mesh=new THREE.Mesh(gb,new THREE.MeshStandardMaterial({color:hex(OPCOL[s.opfull]||COL.other),metalness:.1,roughness:.6,transparent:true,opacity:.95}));
+    mesh.scale.set(bw,1,bw);mesh.position.set(x,0.5,z);
+    mesh.userData={lid:s.lid,short:shortOf[s.opfull]||s.op,cap:s.cap,muni:s.muni,x,z};
+    scene.add(mesh);bars.push({mesh,s,x,z});});
+  csmsMesh=new THREE.Mesh(new THREE.BoxGeometry(2.6,2.6,2.6),new THREE.MeshStandardMaterial({color:hex(COL.csms),emissive:0x3a1a5a,emissiveIntensity:.5}));
+  csmsMesh.position.set(csmsP[0],1.5,csmsP[1]);scene.add(csmsMesh);
+  attackLines=new THREE.Group();scene.add(attackLines);raycaster=new THREE.Raycaster();
+  cv.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener("pointerup",()=>dragging=false);
+  cv.addEventListener("pointermove",e=>{if(dragging){az-=(e.clientX-px)*0.006;el=Math.max(0.12,Math.min(1.35,el+(e.clientY-py)*0.005));px=e.clientX;py=e.clientY;}else hover3(e);});
+  cv.addEventListener("wheel",e=>{e.preventDefault();R=Math.max(50,Math.min(210,R+e.deltaY*0.07));},{passive:false});
+  resize3();addEventListener("resize",resize3);return true;}
+function resize3(){if(!renderer)return;const r=$("#stage").getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();}
+function hover3(e){const cv=$("#view"),r=cv.getBoundingClientRect();
+  const mx=((e.clientX-r.left)/r.width)*2-1,my=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera({x:mx,y:my},cam);
+  const hit=raycaster.intersectObjects(bars.map(b=>b.mesh))[0],tp=$("#tip3");
+  if(hit){const u=hit.object.userData,st=stateOf(u.lid,t);
+    tp.innerHTML=`<b>${u.short}</b> · ${u.muni||""}<br>${u.cap.toFixed(0)} kW · ${({idle:"正常",cut:"被控",rec:"已隔离/恢复"})[st]}`;
+    tp.style.opacity=1;tp.style.left=Math.min(e.clientX+13,innerWidth-250)+"px";tp.style.top=(e.clientY+13)+"px";}else tp.style.opacity=0;}
+function render3D(cs,tt){
+  bars.forEach(b=>{const st=cs.states[b.s.lid],h=barH(b.s.cap,st);b.mesh.scale.y=h;b.mesh.position.y=h/2;b.mesh.material.color.setHex(hex(colState(st,b.s.opfull)));});
+  muniMesh3.forEach(mm=>{const a=cs.muniAgg[mm.name];const f=a&&a.t>0?Math.min(1,a.c/a.t):0;mm.mesh.material.color.setRGB((14+f*140)/255,(24-f*8)/255,(35-f*12)/255);});
+  while(attackLines.children.length)attackLines.remove(attackLines.children[0]);
+  const cutb=bars.filter(b=>cs.states[b.s.lid]==="cut");csmsMesh.material.color.setHex(hex(cutb.length?COL.cut:COL.csms));
+  const step=Math.max(1,Math.floor(cutb.length/60));
+  for(let i=0;i<cutb.length;i+=step){const b=cutb[i],h=b.mesh.scale.y;
+    attackLines.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(csmsP[0],1.5,csmsP[1]),new THREE.Vector3(b.x,h,b.z)]),new THREE.LineBasicMaterial({color:hex(COL.cut),transparent:true,opacity:.4})));}
+  cam.position.set(target.x+R*Math.cos(el)*Math.sin(az),target.y+R*Math.sin(el),target.z+R*Math.cos(el)*Math.cos(az));
+  cam.lookAt(target);renderer.render(scene,cam);}
+
+// ====================== 2D fallback renderer (canvas) ======================
+let ctx2,fit2;
+function init2D(){const cv=$("#view");ctx2=cv.getContext("2d");if(!ctx2)return false;
+  $("#hint").innerHTML="2D 俯视图<br>市镇底色∝受控功率";
+  function computeFit(){const r=$("#stage").getBoundingClientRect();const dpr=Math.min(devicePixelRatio,2);
+    cv.width=r.width*dpr;cv.height=r.height*dpr;cv.style.width=r.width+"px";cv.style.height=r.height+"px";
+    const pad=24;const xs=SITES.map(s=>PX(s.lon,s.lat)[0]),zs=SITES.map(s=>PX(s.lon,s.lat)[1]);
+    const minx=Math.min(...xs,csmsP[0]),maxx=Math.max(...xs),minz=Math.min(...zs,csmsP[1]),maxz=Math.max(...zs);
+    const sx=(cv.width-2*pad*dpr)/(maxx-minx),sz=(cv.height-2*pad*dpr)/(maxz-minz),k=Math.min(sx,sz);
+    fit2={k,ox:pad*dpr-minx*k+((cv.width-2*pad*dpr)-(maxx-minx)*k)/2,oz:pad*dpr-minz*k+((cv.height-2*pad*dpr)-(maxz-minz)*k)/2,dpr};}
+  computeFit();addEventListener("resize",()=>{computeFit();updateState(+$("#scrub").value);});
+  cv.addEventListener("pointermove",hover2);cv.addEventListener("pointerleave",()=>{$("#tip3").style.opacity=0;});
+  return true;}
+const S2P=(x,z)=>[x*fit2.k+fit2.ox,z*fit2.k+fit2.oz];
+function render2D(cs,tt){const cv=$("#view");ctx2.clearRect(0,0,cv.width,cv.height);
+  // munis
+  MUNI.forEach(m=>{const a=cs.muniAgg[m.properties.nommuni];const f=a&&a.t>0?Math.min(1,a.c/a.t):0;
+    const polys=m.geometry.type==="MultiPolygon"?m.geometry.coordinates:[m.geometry.coordinates];
+    ctx2.beginPath();polys.forEach(pg=>{const ring=pg[0];if(!ring)return;ring.forEach((p,i)=>{const[x,z]=PX(p[0],p[1]);const[sx,sz]=S2P(x,z);i?ctx2.lineTo(sx,sz):ctx2.moveTo(sx,sz);});ctx2.closePath();});
+    ctx2.fillStyle=`rgb(${14+f*150},${24-f*8},${35-f*12})`;ctx2.fill();ctx2.strokeStyle="#24303f";ctx2.lineWidth=fit2.dpr;ctx2.stroke();});
+  // attack lines
+  const[cmx,cmz]=S2P(csmsP[0],csmsP[1]);const cut=SITES.filter(s=>cs.states[s.lid]==="cut");
+  ctx2.strokeStyle="rgba(255,77,87,0.33)";ctx2.lineWidth=fit2.dpr;const step=Math.max(1,Math.floor(cut.length/80));
+  for(let i=0;i<cut.length;i+=step){const[x,z]=PX(cut[i].lon,cut[i].lat);const[sx,sz]=S2P(x,z);ctx2.beginPath();ctx2.moveTo(cmx,cmz);ctx2.lineTo(sx,sz);ctx2.stroke();}
+  // sites
+  SITES.forEach(s=>{const st=cs.states[s.lid];const[x,z]=PX(s.lon,s.lat);const[sx,sz]=S2P(x,z);
+    const rr=(s.top?1.4:1.0)*fit2.dpr*(1+Math.sqrt(s.cap)/34);ctx2.beginPath();ctx2.arc(sx,sz,rr,0,7);
+    ctx2.fillStyle=colState(st,s.opfull);ctx2.globalAlpha=st==="idle"&&!s.top?.7:.95;ctx2.fill();ctx2.globalAlpha=1;});
+  // CSMS
+  ctx2.fillStyle=cut.length?COL.cut:COL.csms;ctx2.fillRect(cmx-5*fit2.dpr,cmz-5*fit2.dpr,10*fit2.dpr,10*fit2.dpr);
+  ctx2.fillStyle="#d8b6ff";ctx2.font=(10*fit2.dpr)+"px monospace";ctx2.textAlign="center";ctx2.fillText("攻击者 → CSMS",cmx,cmz-8*fit2.dpr);}
+let hoverSite=null;
+function hover2(e){const cv=$("#view"),r=cv.getBoundingClientRect();const mx=(e.clientX-r.left)*fit2.dpr,my=(e.clientY-r.top)*fit2.dpr;
+  let best=null,bd=1e9;SITES.forEach(s=>{const[x,z]=PX(s.lon,s.lat);const[sx,sz]=S2P(x,z);const d=(sx-mx)**2+(sz-my)**2;if(d<bd){bd=d;best=s;}});
+  const tp=$("#tip3");if(best&&bd<(14*fit2.dpr)**2){const st=stateOf(best.lid,t);
+    tp.innerHTML=`<b>${shortOf[best.opfull]||best.op}</b> · ${best.muni||""}<br>${best.cap.toFixed(0)} kW · ${({idle:"正常",cut:"被控",rec:"已隔离/恢复"})[st]}`;
+    tp.style.opacity=1;tp.style.left=Math.min(e.clientX+13,innerWidth-250)+"px";tp.style.top=(e.clientY+13)+"px";}else tp.style.opacity=0;}
+
+// ====================== shared update + UI ======================
+function progressFrac(tt){const rc=recov();if(def==="iso"&&rc!=null)return Math.min(1,tt/rc);return Math.min(1,tt/(MAXT*0.85));}
+function updateState(tt){t=tt;const cs=computeStates(tt);
+  if(MODE==="3d")render3D(cs,tt);else if(MODE==="2d")render2D(cs,tt);
+  const sc=cur(),m=def==="iso"?sc.iso:sc.d0,frac=progressFrac(tt);
+  const dE=m.dE*frac;
+  // affected = actual sites touched; for isolation after recovery show the peak reach
+  const aff=def==="iso"&&recov()!=null&&tt>=recov()?m.aff:cs.ncut;
+  $("#k0").textContent=cs.ctrlMW.toFixed(3);$("#k0bar").style.width=Math.min(100,cs.ctrlMW/7*100)+"%";
+  $("#k1").innerHTML=aff+'<span class="u"> /'+CITY.n_loc+'</span>';$("#k1bar").style.width=(aff/CITY.n_loc*100)+"%";
+  $("#k2").innerHTML=Math.round(dE)+'<span class="u"> kWh</span>';
+  $("#k3").innerHTML=cs.muniHit.size+'<span class="u"> 个</span>';
+  $("#clock").textContent="T+"+tt.toFixed(1).padStart(4,"0");
+  threat(cs.ctrlMW,tt);renderFeed(tt);}
+function threat(ctrlMW,tt){const rc=recov();let lv=0;
+  if(rc!=null&&tt>=rc)lv=0;else{const pf=ctrlMW/6;if(pf>=.75)lv=4;else if(pf>=.45)lv=3;else if(pf>=.2)lv=2;else if(ctrlMW>0.01)lv=1;}
+  const names=["安全","注意","警戒","严重","危急"],cols=["#35d6a0","#39c2d8","#ffb02e","#ff8a3d","#ff4d57"];
+  document.querySelectorAll("#lv i").forEach((e,i)=>e.style.background=i<lv?cols[lv]:"#1b2838");
+  const n=$("#lvname");n.textContent=names[lv];n.style.color=cols[lv];}
+let FEED=[];
+function buildFeed(){const sc=cur(),ops=sc.ops,ev=[];
+  ev.push({t:0,k:"atk",x:"⚠ CSMS 后台沦陷 — SetChargingProfile 扇出 ("+ops.map(o=>shortOf[o]||o).join(", ")+")"});
+  SITES.filter(s=>ops.includes(s.opfull)).slice(0,8).forEach((s,i)=>ev.push({t:i/RATE,k:"atk",x:"CSMS → "+(shortOf[s.opfull]||s.op)+"/"+s.lid+" SetChargingProfile(limit=0W)"}));
+  if(def==="iso"){ev.push({t:tauD(),k:"alarm",x:"⚑ 检测告警 — 指令速率突发 ≥5/2min"});ev.push({t:tauD()+1,k:"contain",x:"⛉ 按后台隔离 → "+ops.length+" 家后台机队本地恢复"});}
+  else ev.push({t:Math.min(MAXT,2),k:"atk",x:"无遏制 — 攻击横向扩散至该后台整支机队"});
+  return ev.sort((a,b)=>a.t-b.t);}
+function renderFeed(tt){const feed=$("#feed"),sh=FEED.filter(e=>e.t<=tt);
+  feed.innerHTML=sh.map(e=>`<div class="ln ${e.k}"><span class="ts">T${e.t>=0?"+":""}${e.t.toFixed(1)}</span><span>${e.x}</span></div>`).join("");
+  feed.scrollTop=feed.scrollHeight;$("#feedstat").textContent=sh.length+" / "+FEED.length+" 条";}
+function oplist(){const host=$("#oplist");host.innerHTML="";
+  S1.forEach((r,i)=>{const row=document.createElement("div");row.className="orow"+(cur().ops.length===1&&cur().ops[0]===r.op?" sel":"");
+    const col=OPCOLS[i%OPCOLS.length];
+    row.innerHTML=`<span class="dot" style="background:${col}"></span>${r.short}<span class="mw">${r.mw} MW · ${(r.share*100).toFixed(1)}%</span>`;
+    row.onclick=()=>{scIdx=SCEN.findIndex(s=>s.key==="op:"+r.op);$("#selOp").value=scIdx;refresh();};host.appendChild(row);});}
+function verdict(){const sc=cur();
+  $("#verdict").innerHTML=(def==="iso"
+    ?`检测+隔离：被发现前受控电量 <b>${sc.iso.dE} kWh</b>（无防御 ${sc.d0.dE} kWh，降 <b>${(100*(1-sc.iso.dE/sc.d0.dE)).toFixed(1)}%</b>）· τ_d≈<b>${tauD()} min</b>`
+    :`无防御：被发现前受控电量 <b>${sc.d0.dE} kWh</b> · 受影响 <b>${sc.d0.aff}</b> 站 · 可控 <b>${sc.mw} MW</b>`)
+    +`<br><span style="color:var(--muted)">碎片化控制平面：${sc.ops.length>1?"协同攻破 "+sc.ops.length+" 家后台":"攻破该后台"}，横向可达仅限其机队边界。</span>`;}
+function ticks(){const box=$("#ticks");box.innerHTML="";const mk=(tt,c,x)=>{const d=document.createElement("div");d.className="tick "+c;d.style.left=(tt/MAXT*100)+"%";d.textContent=x;box.appendChild(d);};
+  mk(0,"atk","攻击");if(def==="iso"){mk(tauD(),"detect","检测");mk(tauD()+1,"rec","隔离");}[2,4,6].forEach(v=>mk(v,"",v));}
+function refresh(){SCHED=siteSchedule();FEED=buildFeed();ticks();verdict();oplist();updateState(+$("#scrub").value);
+  $("#sub").textContent=`真实多运营商仿真 · ${CITY.n_loc} 地点 · ${CITY.n_operators} 后台 · ${CITY.mw} MW`;}
+// ---- controls ----
+(function initSel(){const sel=$("#selOp");SCEN.forEach((s,i)=>{const o=document.createElement("option");o.value=i;o.textContent=s.label;sel.appendChild(o);});
+  sel.onchange=()=>{scIdx=+sel.value;$("#scrub").value=0;refresh();};})();
+function seg(host,items,getK,cb){items.forEach(it=>{const b=document.createElement("button");b.textContent=it.label;b.dataset.k=it.key;b.onclick=()=>{cb(it.key);document.querySelectorAll(host+" button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===getK()));};$(host).appendChild(b);});
+  document.querySelectorAll(host+" button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===getK()));}
+seg("#segD",[{key:"none",label:"D0 无防御"},{key:"iso",label:"D3+D5 检测+隔离"}],()=>def,k=>{def=k;$("#scrub").value=0;refresh();});
+$("#foot").textContent=`真实多运营商 OCPP 1.6 仿真 · ${CITY.day} · ${CITY.n_loc} 桩真实 websocket 连接 · 39 个独立 CSMS 控制域 · 状态由仿真逐站事件驱动`;
+// ---- transport + animation ----
+let playing=false,last=0;const scrub=$("#scrub");
+$("#play").onclick=()=>{if(+scrub.value>=MAXT)scrub.value=0;playing=!playing;$("#play").textContent=playing?"⏸ 暂停":"▶ 播放";last=performance.now();};
+scrub.oninput=()=>{playing=false;$("#play").textContent="▶ 播放";updateState(+scrub.value);};
+function loop(){requestAnimationFrame(loop);
+  if(playing){const now=performance.now(),dt=(now-last)/1000;last=now;let tt=t+dt*(+$("#speed").value);if(tt>=MAXT){tt=MAXT;playing=false;$("#play").textContent="▶ 重播";}scrub.value=tt;updateState(tt);}
+  else if(MODE==="3d"&&renderer){cam.position.set(target.x+R*Math.cos(el)*Math.sin(az),target.y+R*Math.sin(el),target.z+R*Math.cos(el)*Math.cos(az));cam.lookAt(target);renderer.render(scene,cam);}}
+// ---- init: 3D if possible, else 2D ----
+if(initThree()){MODE="3d";}else if(init2D()){MODE="2d";$("#hint").innerHTML="2D 俯视图（WebGL 不可用）<br>市镇底色∝受控功率";}
+refresh();loop();
+</script>
