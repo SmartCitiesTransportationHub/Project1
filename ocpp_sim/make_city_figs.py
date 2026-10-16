@@ -23,10 +23,12 @@ R=json.load(open(os.path.join(HERE,"results_city.json")))
 G=json.load(open(os.path.join(HERE,"city_geo.json")))
 SITES=G["geo"]["sites"]; MUNI=G["geo"]["muni"]; BND=G["geo"]["boundary"]
 
-# palette
-BG="#070b11"; STAGE="#0b111a"; MUNI_F="#0e1823"; MUNI_E="#1b2838"; BND_C="#35506e"
-IDLE="#39c2d8"; DANGER="#ff4d57"; WARN="#ffb02e"; OK="#35d6a0"; CSMS_C="#c58bff"; FG="#dbe6f2"; MUT="#8295ac"
-OPCOLS=["#ff4d57","#ffb02e","#c58bff","#35d6a0","#39c2d8","#f26fb8","#9bd14a","#6f8cff"]
+# palette (LIGHT / colourful — intuitive to read)
+BG="#ffffff"; STAGE="#f4f7fb"; MUNI_F="#e6edf5"; MUNI_E="#b7c6d6"; BND_C="#5b7b8a"
+IDLE="#1aa3c4"; DANGER="#e8384f"; WARN="#f08a24"; OK="#1ea97c"; CSMS_C="#8b4ddb"; FG="#1a2633"; MUT="#5d6b7a"
+LIT_RED="#fbd5da"; LIT_GREEN="#cdeedd"            # tinted municipalities
+OTHER="#aeb9c7"                                   # non-compromised sites
+OPCOLS=["#e8384f","#f08a24","#8b4ddb","#1ea97c","#1aa3c4","#e85aa8","#7fb800","#3a6ff0"]
 TOP=[o["op"] for o in R["s1_single_backend"]]          # top-8 operators (by MW)
 SHORT={o["op"]:o["short"] for o in R["operators"]}
 OPCOL={op:OPCOLS[i%len(OPCOLS)] for i,op in enumerate(TOP)}
@@ -78,7 +80,7 @@ def fig_bridge():
             axL.annotate("AMB 公共网络\n(唯一真实会话\n= 标定单元)",(xs[i],ys[i]),xytext=(xs[i]-.02,ys[i]-.34),
                          fontsize=8.2,color="#0b3d91",fontweight="bold",ha="center",
                          arrowprops=dict(arrowstyle="-",color="#0b3d91",lw=1))
-    axL.scatter([],[],s=120,c="#c3cad6",label="其他 36 家后台(仅登记容量)")
+    axL.scatter([],[],s=120,c=OTHER,label="其他 36 家后台(仅登记容量)")
     axL.text(.02,-.02,f"621 个地点 · {CITY['mw']} MW · 气泡∝额定功率",transform=axL.transAxes,fontsize=8,color=MUT)
     axL.set_xlim(-.05,1.05); axL.set_ylim(-.42,1.08)
     # MIDDLE: transfer arrow
@@ -119,7 +121,7 @@ def fig_citymap():
     # other operators (grey)
     oth=[s for s in SITES if s["opfull"] not in OPCOL]
     ax.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=[max(5,s["cap"]/12) for s in oth],
-               c="#45566b",alpha=.55,lw=0,zorder=3,label=None)
+               c=OTHER,alpha=.55,lw=0,zorder=3,label=None)
     # top-8 operators colored
     for op in TOP:
         ss=op_sites(op)
@@ -129,9 +131,9 @@ def fig_citymap():
     # legend
     hd=[Line2D([0],[0],marker="o",ls="",mfc=OPCOL[op],mec="none",ms=8,
                label=f"{SHORT[op]} · {next(o['mw'] for o in R['operators'] if o['op']==op)} MW") for op in TOP]
-    hd.append(Line2D([0],[0],marker="o",ls="",mfc="#45566b",mec="none",ms=7,label="其余 31 家运营商"))
-    ax.legend(handles=hd,loc="upper left",fontsize=8.1,framealpha=.15,labelcolor=FG,
-              facecolor="#0e1823",edgecolor="#223246",ncol=1)
+    hd.append(Line2D([0],[0],marker="o",ls="",mfc=OTHER,mec="none",ms=7,label="其余 31 家运营商"))
+    ax.legend(handles=hd,loc="upper left",fontsize=8.1,framealpha=.95,labelcolor=FG,
+              facecolor="#ffffff",edgecolor=MUNI_E,ncol=1)
     ax.set_title(f"图 C1　巴塞罗那大都会区多运营商充电控制平面：{CITY['n_loc']} 个地点 · {CITY['mw']} MW · "
                  f"{CITY['n_operators']} 个独立 CSMS 后台",color=FG,fontsize=11.5,fontweight="bold",pad=8)
     ax.text(.01,.01,"点大小∝额定功率 · 颜色=运营商后台(前 8 家) · 底图=36 个市镇",transform=ax.transAxes,color=MUT,fontsize=8)
@@ -148,10 +150,10 @@ def fig_blast_single():
     fig,axs=plt.subplots(1,2,figsize=(13,6),facecolor=BG)
     for ax,(op,nmun,rec) in zip(axs,[(wide[0],wide[1],wide[2]),(conc[0],conc[1],conc[2])]):
         ax.set_facecolor(STAGE); lm=lit_munis(op)
-        draw_munis(ax,lit=lm,litcol="#2a1420")
+        draw_munis(ax,lit=lm,litcol=LIT_RED)
         ss=op_sites(op)
         oth=[s for s in SITES if s["opfull"]!=op]
-        ax.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=5,c="#2f3d4e",alpha=.5,lw=0,zorder=3)
+        ax.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=5,c=OTHER,alpha=.5,lw=0,zorder=3)
         ax.scatter([s["lon"] for s in ss],[s["lat"] for s in ss],s=[max(10,s["cap"]/8) for s in ss],
                    c=DANGER,alpha=.92,lw=.3,edgecolors="#120608",zorder=5)
         extent(ax)
@@ -199,20 +201,20 @@ def fig_campaign():
     axm=fig.add_subplot(gs[0,0]); axm.set_facecolor(STAGE)
     K=5; campaign_ops=TOP[:K]
     lm=set().union(*[lit_munis(op) for op in campaign_ops])
-    draw_munis(axm,lit=lm,litcol="#241526")
+    draw_munis(axm,lit=lm,litcol=LIT_RED)
     oth=[s for s in SITES if s["opfull"] not in campaign_ops]
-    axm.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=5,c="#2f3d4e",alpha=.5,lw=0,zorder=3)
+    axm.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=5,c=OTHER,alpha=.5,lw=0,zorder=3)
     shades=["#ff3b46","#ff7a2e","#ffb02e","#ffd24a","#f26fb8"]
     for i,op in enumerate(campaign_ops):
         ss=op_sites(op)
         axm.scatter([s["lon"] for s in ss],[s["lat"] for s in ss],s=[max(9,s["cap"]/9) for s in ss],
                     c=shades[i],alpha=.9,lw=.2,edgecolors="#120608",zorder=5,label=f"{SHORT[op]}")
     extent(axm)
-    axm.legend(loc="upper left",fontsize=7.8,framealpha=.15,labelcolor=FG,facecolor="#0e1823",edgecolor="#223246",title="协同攻破的后台",title_fontsize=8)
+    axm.legend(loc="upper left",fontsize=7.8,framealpha=.95,labelcolor=FG,facecolor="#ffffff",edgecolor=MUNI_E,title="协同攻破的后台",title_fontsize=8)
     axm.get_legend().get_title().set_color(FG)
     axm.set_title(f"(a)(GIS) 协同攻破前 {K} 家后台：{s2[K-1]['mw']:.1f} MW 波及 {len(lm)} 市镇",color=FG,fontsize=10.5,fontweight="bold",pad=6)
     # curve
-    axc=fig.add_subplot(gs[0,1]); axc.set_facecolor("#0d141d")
+    axc=fig.add_subplot(gs[0,1]); axc.set_facecolor("#ffffff")
     k=[x["k"] for x in s2]; de0=[x["d0_dE"] for x in s2]; dei=[x["iso_dE"] for x in s2]; mw=[x["mw"] for x in s2]
     axc.plot(k,de0,"-o",color=DANGER,lw=2,ms=5,label="无防御 ΔE")
     axc.plot(k,dei,"-o",color=OK,lw=2,ms=5,label="各后台检测+隔离 ΔE")
@@ -220,12 +222,12 @@ def fig_campaign():
     axc.set_xlabel("协同攻破的后台数 k (按功率降序)",color=FG,fontsize=9.5)
     axc.set_ylabel("城市被发现前受控电量 ΔE (kWh)",color=DANGER,fontsize=9.5)
     axc.tick_params(colors=FG);
-    for s in axc.spines.values(): s.set_color("#223246")
+    for s in axc.spines.values(): s.set_color(MUNI_E)
     ax2=axc.twinx(); ax2.plot(k,mw,"--s",color=WARN,lw=1.4,ms=4,label="攻破容量 (MW)")
     ax2.set_ylabel("攻破额定功率 (MW)",color=WARN,fontsize=9.5); ax2.tick_params(colors=WARN)
     lines=axc.get_legend_handles_labels()[0]+ax2.get_legend_handles_labels()[0]
     labs=axc.get_legend_handles_labels()[1]+ax2.get_legend_handles_labels()[1]
-    axc.legend(lines,labs,fontsize=8,loc="center right",framealpha=.2,labelcolor=FG,facecolor="#0e1823",edgecolor="#223246")
+    axc.legend(lines,labs,fontsize=8,loc="center right",framealpha=.95,labelcolor=FG,facecolor="#ffffff",edgecolor=MUNI_E)
     axc.set_title("(b) 协同campaign的累积爆炸半径：需多次独立攻破才接近全城",color=FG,fontsize=10.5,fontweight="bold")
     axc.grid(alpha=.15)
     fig.suptitle("图 C4　协同多后台campaign：控制平面碎片化把爆炸半径下界锁死——逐后台隔离即便在协同攻击下仍遏制(实测)",
@@ -276,9 +278,9 @@ def fig_storyboard():
     for ax,(cap,ops,mode) in zip(axs,stages):
         ax.set_facecolor(STAGE)
         lm=set().union(*[lit_munis(o) for o in ops]) if mode!="t0" else lit_munis(ops[0])
-        draw_munis(ax,lit=lm,litcol=("#241526" if mode!="contain" else "#122017"))
+        draw_munis(ax,lit=lm,litcol=(LIT_RED if mode!="contain" else LIT_GREEN))
         oth=[s for s in SITES if s["opfull"] not in ops]
-        ax.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=4,c="#2a3645",alpha=.5,lw=0,zorder=3)
+        ax.scatter([s["lon"] for s in oth],[s["lat"] for s in oth],s=4,c=OTHER,alpha=.5,lw=0,zorder=3)
         # CSMS anchor (top center)
         lons=[s["lon"] for s in SITES]; lats=[s["lat"] for s in SITES]
         cx=np.mean(lons); cyy=max(lats)+.012
@@ -290,8 +292,8 @@ def fig_storyboard():
             if mode in("spread","blast"):
                 for s in ss[:: max(1,len(ss)//14)]:
                     ax.plot([cx,s["lon"]],[cyy,s["lat"]],color=DANGER,lw=.4,alpha=.25,zorder=4)
-        ax.scatter([cx],[cyy],s=70,c=CSMS_C,marker="s",zorder=6,edgecolors="white",lw=.5)
-        ax.text(cx,cyy+.004,"攻击者 → CSMS 后台",color="#d8b6ff",fontsize=7.5,ha="center")
+        ax.scatter([cx],[cyy],s=70,c=CSMS_C,marker="s",zorder=6,edgecolors="#4a2580",lw=.6)
+        ax.text(cx,cyy+.004,"攻击者 → CSMS 后台",color=CSMS_C,fontsize=7.5,ha="center",fontweight="bold")
         extent(ax)
         ax.set_title(cap,color=FG,fontsize=9.8,fontweight="bold",pad=4)
         if mode=="blast":
