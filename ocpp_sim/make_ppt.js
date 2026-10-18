@@ -122,6 +122,21 @@ img(s,"fig6_detector.png",7.0,2.0,5.6,1.605);
 s.addText("一致性检测器：把真实大停电（全网同步跌至期望 0.53）与单站伪造电表区分开——不误报。",{x:7.0,y:5.75,w:5.6,h:0.9,fontSize:12.5,color:INK,fontFace:"Calibri",align:"left",valign:"top",isTextBox:true,margin:0});
 s.addNotes("建模3：攻击扇出(30/3指令每分)→双信号检测(指令速率+规模×节律一致性)→限速+1分钟隔离恢复。检测器能区分真停电vs单站造假。");
 
+// ===== S9b algorithm contribution: optimal stopping =====
+s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"算法贡献",RED); title(s,"把“何时隔离”求解为最优问题（最优停止）");
+body(s,[
+  {text:"问题：隔离太晚 → 损失累积；误隔离健康后台 → 中断合法充电。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
+  {text:"建成贝叶斯快速变点检测：良性 r~N(1,σ₀)、攻击 r~N(1−δ,σ₀)，σ₀=0.39 取自真实数据。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
+  {text:"最优规则 = 对后验 pₜ=P(已被攻击) 的阈值 A*（Shiryaev）；A* 最小化 期望损失 c·时延 + K·误隔离。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
+  {text:"发现：现用固定规则在真实噪声下误隔离 76%；最优策略把期望损失降 84%，越隐蔽优势越大。",options:{bullet:true,bold:true,color:RED,breakLine:true}},
+],0.7,1.65,6.05,3.6,13.5);
+img(s,"fig_optstop_oc.png",7.0,1.6,5.95,1.571);
+const OS=[["−84%","期望损失↓（δ=0.5）",GREEN],["76%→1.4%","误隔离率",RED],["A*≈0.93","最优隔离阈值",NAVY]];
+OS.forEach((c,i)=>{const x=0.75+i*4.1; card(s,x,5.7,3.75,1.1,CARD);
+  s.addText(c[0],{x,y:5.78,w:3.75,h:0.6,fontSize:23,bold:true,color:c[2],align:"center",fontFace:"Cambria",isTextBox:true,margin:0});
+  s.addText(c[1],{x,y:6.36,w:3.75,h:0.35,fontSize:12,color:MUT,align:"center",fontFace:"Calibri",isTextBox:true,margin:0});});
+s.addNotes("算法贡献:把'何时隔离'建成贝叶斯快速变点检测/最优停止,求出最优阈值A*。固定规则真实噪声下误隔离76%;最优策略降期望损失84%。这就是'用算法解决问题',不只是分析。");
+
 // ===== S10 experiment design matrix =====
 s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"实验设计",TEAL); title(s,"场景矩阵与评价口径");
 const hdr={fill:NAVY,color:"FFFFFF",bold:true,fontSize:14,valign:"middle",fontFace:"Calibri"};
