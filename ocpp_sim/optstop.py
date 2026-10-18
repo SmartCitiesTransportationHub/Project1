@@ -65,6 +65,36 @@ def tau_fixed(r,band=0.5,m=2):
 def tau_naive(r,band=0.5):
     hit=r<band; T=r.shape[1]; return np.where(hit.any(1),hit.argmax(1),T)
 
+# ---- learned (ML) one-class baselines on a sliding feature window ----
+from sklearn.ensemble import IsolationForest
+from sklearn.svm import OneClassSVM
+WIN=6
+def _feats(r):
+    """r:[N,T] -> X:[N, T-WIN, F] features (mean,min,std,last) of each window."""
+    N,T=r.shape; cols=[]
+    for t in range(WIN,T):
+        seg=r[:,t-WIN:t]; cols.append(np.stack([seg.mean(1),seg.min(1),seg.std(1),r[:,t]],1))
+    return np.stack(cols,1)                            # [N, T-WIN, F]
+def ml_fit(model,ntr=5000):
+    rtr=H0(2000,80); X=_feats(rtr).reshape(-1,4)       # benign training windows
+    if len(X)>ntr: X=X[np.random.default_rng(0).choice(len(X),ntr,replace=False)]
+    model.fit(X); return model
+def ml_curve(model,delta):
+    s0b=ml_scores(model,H0(400,160)).ravel(); thrs=np.quantile(s0b,np.linspace(0.0015,0.45,22))
+    return ml_oc(model,thrs,delta)
+def ml_scores(model,r):
+    X=_feats(r); N,Tw,F=X.shape
+    s=model.decision_function(X.reshape(-1,F)).reshape(N,Tw)   # higher = more normal
+    return s                                            # anomaly when s<=thr
+def tau_low(score,thr):
+    cm=np.minimum.accumulate(score,axis=1); hit=cm<=thr; Tw=score.shape[1]
+    return np.where(hit.any(1),hit.argmax(1),Tw)
+def ml_oc(model,thrs,delta,N=1200,T0=800,T1=300):
+    s0=ml_scores(model,H0(N,T0)); s1=ml_scores(model,H1(N,T1,delta))
+    arl=np.array([tau_low(s0,th).mean()+1+WIN for th in thrs])
+    add=np.array([tau_low(s1,th).mean()+WIN for th in thrs])   # +WIN: window lag (inherent to windowed ML)
+    return arl,add
+
 def H0(N,T): return 1.0+SIGMA0*rng.standard_normal((N,T))
 def H1(N,T,delta): return (1.0-delta)+SIGMA0*rng.standard_normal((N,T))
 
@@ -108,6 +138,22 @@ def main():
     res["oc"]={"delta_oc":d0,"shiryaev":{"arl0":sa.tolist(),"add":sd.tolist(),"thr":shi_thr.tolist()},
                "cusum":{"arl0":ca.tolist(),"add":cd.tolist(),"thr":cus_thr.tolist()},"fixed":fr,"naive":nv}
     print(f"[OC] shiryaev ARL0 {sa.min():.0f}-{sa.max():.0f} ADD {sd.min():.1f}-{sd.max():.1f}")
+    # ML learned one-class baselines
+    ifo=ml_fit(IsolationForest(n_estimators=120,contamination="auto",random_state=1))
+    svm=ml_fit(OneClassSVM(nu=0.05,gamma="scale"))
+    ia,idd=ml_curve(ifo,d0); va,vd=ml_curve(svm,d0)
+    res["oc"]["iforest"]={"arl0":ia.tolist(),"add":idd.tolist()}
+    res["oc"]["ocsvm"]={"arl0":va.tolist(),"add":vd.tolist()}
+    print(f"[ML] IForest ARL0 {ia.min():.0f}-{ia.max():.0f} ADD {idd.min():.1f}-{idd.max():.1f} | OCSVM ADD {vd.min():.1f}-{vd.max():.1f}")
+    # application-scenario sweep: cost regime K/c (how costly false isolation is)
+    reg=[]
+    for Kc in [10,30,100,300]:
+        r,nu=episodes(5000,240,d0); st=shiryaev(r,d0)
+        cc=np.array(loss_threshold(st,nu,shi_thr,1.0,Kc)); ja=int(np.argmin(cc[:,1])); A=float(cc[ja,0])
+        o=cc[ja]; fx=loss_rule(tau_fixed(r,0.5,2),nu,1.0,Kc)
+        reg.append({"Kc":Kc,"A":A,"opt_cost":float(o[1]),"fix_cost":fx[0],"red":float(100*(1-o[1]/fx[0]) if fx[0] else 0)})
+        print(f"[K/c={Kc}] A*={A:.3f} opt={o[1]:.2f} fix={fx[0]:.2f} red={reg[-1]['red']:.0f}%")
+    res["regime"]=reg
     # cost sweep (shiryaev) at d0
     K=30.0; c=1.0; r,nu=episodes(6000,240,d0); st=shiryaev(r,d0)
     cost=loss_threshold(st,nu,shi_thr,c,K); cost=np.array(cost)
@@ -153,7 +199,7 @@ def make_figs(res,d0,Astar):
     a1.axhline(1.0,color=MUT,lw=.8,ls=":"); a1.axhline(1-d0,color=RED,lw=.8,ls="--")
     a1.axvline(nu,color=RED,lw=1.4,alpha=.6); a1.text(nu+1,1.95,"攻击开始 ν",color=RED,fontsize=9,fontweight="bold")
     a1.set_ylabel("一致性比 rₜ",fontsize=10); a1.set_ylim(-0.2,2.5); a1.legend(fontsize=8.5,loc="upper right",framealpha=.9)
-    a1.set_title("图 D1(a)　单次隐蔽攻击上的信号与后验",color=NAVY,fontsize=12,fontweight="bold",loc="left")
+    a1.set_title("图 8　最优停止 vs 固定规则：单次隐蔽攻击上的信号与后验",color=NAVY,fontsize=12,fontweight="bold",loc="left")
     a2.plot(p,color=TEAL,lw=2,label="贝叶斯后验 pₜ=P(已被攻击)")
     a2.axhline(Astar,color=GREEN,lw=1.6,ls="--",label=f"最优阈值 A*={Astar:.2f}")
     a2.axvline(nu,color=RED,lw=1.4,alpha=.6)
@@ -169,17 +215,20 @@ def make_figs(res,d0,Astar):
     ax.plot(oc["shiryaev"]["arl0"],np.array(oc["shiryaev"]["add"])*TICK_MIN,"-o",color=TEAL,lw=2,ms=4,label="贝叶斯后验 Shiryaev（本文最优）")
     ax.plot(oc["cusum"]["arl0"],np.array(oc["cusum"]["add"])*TICK_MIN,"-s",color=PURPLE,lw=1.8,ms=4,label="CUSUM（经典最优）")
     fr=np.array([[a,b*TICK_MIN] for a,b,_ in oc["fixed"]]); nv=np.array([[a,b*TICK_MIN] for a,b,_ in oc["naive"]])
+    if "iforest" in oc:
+        ax.plot(oc["iforest"]["arl0"],np.array(oc["iforest"]["add"])*TICK_MIN,"--^",color=GREEN,lw=1.5,ms=4,label="孤立森林（学习型 ML）")
+        ax.plot(oc["ocsvm"]["arl0"],np.array(oc["ocsvm"]["add"])*TICK_MIN,"--v",color="#C9872F",lw=1.5,ms=4,label="单类 SVM（学习型 ML）")
     ax.scatter(fr[:,0],fr[:,1],s=75,color=ORANGE,marker="D",zorder=5,label="固定规则 r<带·连续2格（本文现用）")
     ax.scatter(nv[:,0],nv[:,1],s=60,color=RED,marker="X",zorder=5,label="朴素单次阈值")
     ax.set_xscale("log"); ax.set_xlabel("误隔离前平均运行时长 ARL₀ (min，越大越好)",fontsize=10.5)
     ax.set_ylabel("平均检测时延 ADD (min，越小越好)",fontsize=10.5)
-    ax.set_title(f"图 D2　隔离触发器的操作特性（隐蔽攻击 δ={oc['delta_oc']}，σ₀={SIGMA0}）\n左下更优：最优策略在同等误报下检测更快",color=NAVY,fontsize=12,fontweight="bold")
+    ax.set_title(f"图 9　隔离触发器的操作特性·六法对比（隐蔽攻击 δ={oc['delta_oc']}，σ₀={SIGMA0}）\n左下更优：贝叶斯/CUSUM 严格优于学习型 ML 与启发式规则",color=NAVY,fontsize=12,fontweight="bold")
     ax.legend(fontsize=9,loc="upper right"); ax.grid(alpha=.25,which="both")
     for sp in ax.spines.values(): sp.set_color("#C9D6E2")
     fig.tight_layout(); fig.savefig(os.path.join(FIGS,"fig_optstop_oc.png"),bbox_inches="tight",facecolor="white"); plt.close(fig); print("[fig] oc")
 
     cs=res["cost_sweep"]; sens=res["sensitivity"]
-    fig,(a1,a2)=plt.subplots(1,2,figsize=(12.5,4.8),facecolor="white",gridspec_kw={"width_ratios":[1.1,1]})
+    fig,(a1,a2,a3)=plt.subplots(1,3,figsize=(16.6,4.6),facecolor="white",gridspec_kw={"width_ratios":[1.1,1,1]})
     a1.plot(cs["thr"],cs["cost"],"-o",color=TEAL,lw=2,ms=3)
     ia=int(np.argmin(cs["cost"])); a1.scatter([cs["thr"][ia]],[cs["cost"][ia]],s=120,color=GREEN,zorder=5,edgecolors="#0b5a3c",lw=1)
     a1.axvline(cs["Astar"],color=GREEN,ls="--",lw=1.3); a1.text(cs["Astar"]-0.14,max(cs["cost"])*0.88,f"A*={cs['Astar']:.2f}",color=GREEN,fontsize=10,fontweight="bold")
@@ -195,9 +244,15 @@ def make_figs(res,d0,Astar):
     a2.set_xticks(x); a2.set_xticklabels([f"δ={v}\n{'隐蔽' if v<0.45 else ('中' if v<0.7 else '响亮')}" for v in d],fontsize=9)
     a2.set_ylabel("期望总损失",fontsize=10); a2.set_title("(b) 越隐蔽的攻击，最优策略优势越大",fontsize=11,fontweight="bold")
     a2.legend(fontsize=9); a2.grid(axis="y",alpha=.25)
-    for ax in (a1,a2):
+    # (c) application-scenario / cost-regime sweep
+    reg=res.get("regime",[]); kc=[r["Kc"] for r in reg]; red=[r["red"] for r in reg]
+    a3.plot(kc,red,"-o",color=TEAL,lw=2,ms=6)
+    for r in reg: a3.annotate(f"A*={r['A']:.2f}",(r["Kc"],r["red"]),fontsize=8.5,color=MUT,xytext=(0,-15),textcoords="offset points",ha="center")
+    a3.set_xscale("log"); a3.set_ylim(0,100); a3.set_xlabel("误隔离代价比 K/c（越在意误隔离→越大）",fontsize=10)
+    a3.set_ylabel("期望损失削减 %（vs 固定规则）",fontsize=10); a3.set_title("(c) 不同运营场景(成本比)下的稳健增益",fontsize=11,fontweight="bold"); a3.grid(alpha=.25)
+    for ax in (a1,a2,a3):
         for sp in ax.spines.values(): sp.set_color("#C9D6E2")
-    fig.suptitle("图 D3　最优隔离阈值与对固定规则的改进（期望损失口径）",color=NAVY,fontsize=12.5,fontweight="bold",y=1.02)
+    fig.suptitle("图 10　最优隔离阈值、隐蔽度与运营场景的改进（期望损失口径）",color=NAVY,fontsize=12.5,fontweight="bold",y=1.02)
     fig.tight_layout(); fig.savefig(os.path.join(FIGS,"fig_optstop_cost.png"),bbox_inches="tight",facecolor="white"); plt.close(fig); print("[fig] cost")
 
 if __name__=="__main__":

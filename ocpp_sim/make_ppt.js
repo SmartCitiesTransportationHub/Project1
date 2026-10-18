@@ -128,8 +128,9 @@ body(s,[
   {text:"问题：隔离太晚 → 损失累积；误隔离健康后台 → 中断合法充电。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
   {text:"建成贝叶斯快速变点检测：良性 r~N(1,σ₀)、攻击 r~N(1−δ,σ₀)，σ₀=0.39 取自真实数据。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
   {text:"最优规则 = 对后验 pₜ=P(已被攻击) 的阈值 A*（Shiryaev）；A* 最小化 期望损失 c·时延 + K·误隔离。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
-  {text:"发现：现用固定规则在真实噪声下误隔离 76%；最优策略把期望损失降 84%，越隐蔽优势越大。",options:{bullet:true,bold:true,color:RED,breakLine:true}},
-],0.7,1.65,6.05,3.6,13.5);
+  {text:"六法对比：最优策略严格优于 CUSUM、学习型 ML（孤立森林/单类SVM）与固定规则。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
+  {text:"发现：真实噪声下固定规则误隔离 76%；最优策略降期望损失 84%，越隐蔽、误隔离代价越高优势越大。",options:{bullet:true,bold:true,color:RED,breakLine:true}},
+],0.7,1.6,6.05,3.8,13);
 img(s,"fig_optstop_oc.png",7.0,1.6,5.95,1.571);
 const OS=[["−84%","期望损失↓（δ=0.5）",GREEN],["76%→1.4%","误隔离率",RED],["A*≈0.93","最优隔离阈值",NAVY]];
 OS.forEach((c,i)=>{const x=0.75+i*4.1; card(s,x,5.7,3.75,1.1,CARD);
