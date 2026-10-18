@@ -138,6 +138,17 @@ OS.forEach((c,i)=>{const x=0.75+i*4.1; card(s,x,5.7,3.75,1.1,CARD);
   s.addText(c[1],{x,y:6.36,w:3.75,h:0.35,fontSize:12,color:MUT,align:"center",fontFace:"Calibri",isTextBox:true,margin:0});});
 s.addNotes("算法贡献:把'何时隔离'建成贝叶斯快速变点检测/最优停止,求出最优阈值A*。固定规则真实噪声下误隔离76%;最优策略降期望损失84%。这就是'用算法解决问题',不只是分析。");
 
+// ===== S9c algorithm × fragmentation: put the comparison back onto the real operators =====
+s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"算法贡献 · 碎片化",PURPLE); title(s,"同一组算法，放回城市真实的不同运营商");
+img(s,"fig_optstop_ops.png",0.87,1.28,11.6,3.452);   // 16.8:5.0
+s.addShape(pres.ShapeType.roundRect,{x:0.7,y:4.86,w:11.95,h:0.66,rectRadius:0.08,fill:{color:"F1EEFB"},line:{color:"C9B6EC",width:1}});
+s.addText([{text:"碎片化＝每家后台是不同的检测问题：",options:{bold:true,color:"6A33C0",fontSize:13}},{text:"小运营商样本少、信号更噪，代价比各异——单一全局固定阈值失控，而贝叶斯最优逐运营商自适应、始终最优。",options:{color:INK,fontSize:13}}],{x:0.95,y:4.86,w:11.5,h:0.66,align:"left",valign:"middle",fontFace:"Calibri",isTextBox:true,margin:0});
+const OPS9=[["下包络","贝叶斯最优在全体运营商上损失最低",TEAL],["−73%","全队平均损失 vs 固定规则（较最好 ML 低逾半）",GREEN],["A*: 0.08→0.98","最优隔离阈值随运营商自适应",NAVY]];
+OPS9.forEach((c,i)=>{const x=0.7+i*4.1; card(s,x,5.65,3.75,1.1,CARD);
+  s.addText(c[0],{x,y:5.72,w:3.75,h:0.55,fontSize:(c[0].length>6?18:23),bold:true,color:c[2],align:"center",fontFace:"Cambria",isTextBox:true,margin:0});
+  s.addText(c[1],{x:x+0.12,y:6.3,w:3.5,h:0.42,fontSize:11,color:MUT,align:"center",fontFace:"Calibri",isTextBox:true,margin:0});});
+s.addNotes("算法×碎片化:把六法对比放回真实的8家运营商(规模3-138点)逐一标定。噪声随规模(小运营商更噪)、代价比随构成。贝叶斯最优是全体下包络(全队再降73%),且A*随运营商0.08→0.98自适应。固定规则只有一个阈值,在噪声大的小运营商失控。这回应'要用真实不同运营商对比算法',并保留碎片化视角。");
+
 // ===== S10 experiment design matrix =====
 s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"实验设计",TEAL); title(s,"场景矩阵与评价口径");
 const hdr={fill:NAVY,color:"FFFFFF",bold:true,fontSize:14,valign:"middle",fontFace:"Calibri"};

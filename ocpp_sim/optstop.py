@@ -127,6 +127,72 @@ def loss_rule(tau,nu,c=1.0,K=30.0):
     tau=tau+1; fi=tau<nu; d=np.where(fi,0,tau-nu)
     return float(np.where(fi,K,c*d).mean()), float(d[~fi].mean() if (~fi).any() else 0), float(fi.mean())
 
+# ======================================================================
+#  Per-operator study: the SAME six algorithms under the city's REAL
+#  fragmentation.  The metropolitan control plane is 39 independent
+#  operator backends of wildly different size; each is a DIFFERENT
+#  detection problem, so one global rule cannot serve the fleet.
+#    * noise  sigma_op  grows as the operator shrinks (law of large
+#      numbers over fewer concurrent sessions): sigma_op = sigma0*sqrt(n_ref/n_loc).
+#      -> small fragmented operators are intrinsically noisier/harder.
+#    * cost ratio K/c is operator-specific: delay cost c ~ MW at risk,
+#      false-isolation penalty K ~ customers (locations) disrupted.
+#      -> each operator has its own optimal caution level A*.
+#  The Bayesian optimal controller re-derives (A*_op) per operator; a
+#  single city-wide fixed threshold cannot adapt and fails on the noisy tail.
+# ======================================================================
+NREF=71   # reference cell = AMB real-session operator (sigma0 measured here)
+def sigma_op(n_loc, sref=SIGMA0, nref=NREF, lo=0.12, hi=0.90):
+    return float(np.clip(sref*np.sqrt(nref/max(n_loc,1)), lo, hi))
+def episodes_s(N,T,delta,sigma,hazard=RHO):
+    nu=np.minimum(rng.geometric(hazard,N),T+1)
+    r=1.0+sigma*rng.standard_normal((N,T))
+    idx=np.arange(T)[None,:]+1
+    return np.where(idx>=nu[:,None], r-delta, r), nu
+def H0s(N,T,sigma): return 1.0+sigma*rng.standard_normal((N,T))
+def ml_fit_s(model,sigma,ntr=4000):
+    X=_feats(H0s(1500,80,sigma)).reshape(-1,4)
+    if len(X)>ntr: X=X[np.random.default_rng(0).choice(len(X),ntr,replace=False)]
+    model.fit(X); return model
+def ml_loss(model,r_ep,nu,K,c=1.0):
+    s=ml_scores(model,r_ep); thrs=np.quantile(s.ravel(),np.linspace(0.001,0.5,22)); best=None
+    for th in thrs:
+        tau=tau_low(s,th)+WIN+1; fi=tau<nu; d=np.where(fi,0,tau-nu)
+        cost=float(np.where(fi,K,c*d).mean()); best=cost if best is None else min(best,cost)
+    return best
+def per_operator_study(delta=0.5):
+    city=json.load(open(os.path.join(OUT,"results_city.json")))
+    ops=city["s1_single_backend"]                      # 8 real operators, size 3..138 loc
+    shi_thr=np.concatenate([np.linspace(0.08,0.48,9),np.linspace(0.50,0.9985,24)])
+    cus_thr=np.linspace(0.3,14,30); bands=[0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7]
+    kappa=30.0*9.59/71.0                               # K=kappa*n_loc -> AMB(71loc,9.59MW) gives K/c=30
+    sref=sigma_op(NREF)
+    rref,nuref=episodes_s(4000,240,delta,sref)
+    gb=min(bands,key=lambda b:loss_rule(tau_fixed(rref,b,2),nuref,1.0,30.0)[0])  # one global band, tuned at the reference
+    print(f"[OPS] global fixed band tuned at reference = {gb}")
+    rows=[]
+    for o in ops:
+        n=o["n_loc"]; mw=o["mw"]; sg=sigma_op(n); Kc=kappa*n/mw
+        r,nu=episodes_s(4000,240,delta,sg)
+        st=shiryaev(r,delta,sg); cc=np.array(loss_threshold(st,nu,shi_thr,1.0,Kc))
+        ja=int(np.argmin(cc[:,1])); A=float(cc[ja,0]); L_shi=float(cc[ja,1])
+        cu=np.array(loss_threshold(cusum(r,delta,sg),nu,cus_thr,1.0,Kc)); L_cus=float(cu[:,1].min())
+        L_fixT=min(loss_rule(tau_fixed(r,b,2),nu,1.0,Kc)[0] for b in bands)       # fixed rule, best per-operator band
+        L_fixG=loss_rule(tau_fixed(r,gb,2),nu,1.0,Kc)[0]                          # fixed rule, single global band
+        L_nv=min(loss_rule(tau_naive(r,b),nu,1.0,Kc)[0] for b in bands)
+        L_if=ml_loss(ml_fit_s(IsolationForest(n_estimators=100,random_state=1),sg),r[:1500],nu[:1500],Kc)
+        L_oc=ml_loss(ml_fit_s(OneClassSVM(nu=0.05,gamma="scale"),sg),r[:1500],nu[:1500],Kc)
+        rows.append({"short":o["short"],"mw":mw,"n_loc":n,"sigma":round(sg,3),"Kc":round(Kc,1),"A":round(A,3),
+                     "shiryaev":round(L_shi,3),"cusum":round(L_cus,3),"iforest":round(L_if,3),"ocsvm":round(L_oc,3),
+                     "fixed_tuned":round(L_fixT,3),"fixed_global":round(L_fixG,3),"naive":round(L_nv,3)})
+        print(f"  {o['short'][:16]:16s} n={n:3d} σ={sg:.2f} K/c={Kc:4.1f} A*={A:.2f} | shi={L_shi:5.2f} cus={L_cus:5.2f} iF={L_if:5.2f} oc={L_oc:5.2f} fixT={L_fixT:5.2f} fixG={L_fixG:6.2f} nv={L_nv:6.2f}")
+    # fleet-wide summary: mean normalised loss per method (fragmentation cost of a non-adaptive rule)
+    meth=["shiryaev","cusum","iforest","ocsvm","fixed_tuned","fixed_global","naive"]
+    fleet={m:round(float(np.mean([x[m] for x in rows])),3) for m in meth}
+    print("[OPS] fleet mean loss:",{k:round(v,1) for k,v in fleet.items()})
+    return {"delta":delta,"global_band":gb,"kappa":round(kappa,3),"nref":NREF,"sref":round(sref,3),
+            "rows":rows,"fleet":fleet}
+
 def main():
     res={"sigma0":SIGMA0,"rho":RHO,"tick_min":TICK_MIN}
     d0=0.5; DELTAS=[0.35,0.5,0.8]; res["deltas"]=DELTAS
@@ -175,8 +241,11 @@ def main():
                      "fix_cost":fx[0],"fix_delay_min":fx[1]*TICK_MIN,"fix_fi":fx[2]})
         print(f"[d={d}] optA={A:.3f} cost={o[1]:.2f}(d {o[2]:.1f}tk,FI {o[3]:.3f}) | fix cost={fx[0]:.2f}(d {fx[1]:.1f}tk,FI {fx[2]:.3f})")
     res["sensitivity"]=sens
+    # per-operator (fragmentation) comparison of all six algorithms
+    res["operators"]=per_operator_study(d0)
     json.dump(res,open(os.path.join(OUT,"results_optstop.json"),"w"),ensure_ascii=False,indent=1); print("[SAVED] results_optstop.json")
     make_figs(res,d0,Astar)
+    fig_ops(res["operators"])
 
 def make_figs(res,d0,Astar):
     # pick a REPRESENTATIVE episode: fixed rule false-isolates before the attack
@@ -254,6 +323,63 @@ def make_figs(res,d0,Astar):
         for sp in ax.spines.values(): sp.set_color("#C9D6E2")
     fig.suptitle("图 10　最优隔离阈值、隐蔽度与运营场景的改进（期望损失口径）",color=NAVY,fontsize=12.5,fontweight="bold",y=1.02)
     fig.tight_layout(); fig.savefig(os.path.join(FIGS,"fig_optstop_cost.png"),bbox_inches="tight",facecolor="white"); plt.close(fig); print("[fig] cost")
+
+def fig_ops(opres):
+    """图 11  六种算法在城市真实碎片化运营商上的对比（按运营商逐一标定）。"""
+    rows=sorted(opres["rows"],key=lambda r:r["n_loc"])     # small (noisy/hard) -> large (clean/easy)
+    short=[r["short"] for r in rows]; x=np.arange(len(rows))
+    sg=np.array([r["sigma"] for r in rows]); nl=np.array([r["n_loc"] for r in rows])
+    Kc=np.array([r["Kc"] for r in rows]); A=np.array([r["A"] for r in rows])
+    fig=plt.figure(figsize=(16.8,5.0),facecolor="white")
+    gs=fig.add_gridspec(1,3,width_ratios=[1.05,1.35,1.05],wspace=0.28)
+    # (a) fragmentation -> different difficulty: noise vs operator size
+    a1=fig.add_subplot(gs[0,0])
+    xs=np.logspace(0,2.3,100); a1.plot(xs,np.clip(SIGMA0*np.sqrt(NREF/xs),0.12,0.90),color=MUT,lw=1.3,ls="--",
+        label=f"σ(n)=σ₀√({NREF}/n) 截断")
+    a1.scatter(nl,sg,s=90,c=TEAL,edgecolors=NAVY,lw=1,zorder=5)
+    aoff={"CHARG-ELECTRA SP":("CHARG-ELECTRA",5,7),"CHARGING TOGETHE":("CHARGING T.",5,-13),
+          "Etecnic":("Etecnic",7,2),"Repsol":("Repsol",7,6),"AMB 公共网络":("AMB",7,-12),
+          "Iberdrola":("Iberdrola",-52,-2),"Endesa X Way":("Endesa",7,4),"BSM-Endolla":("BSM",7,-12)}
+    for r in rows:
+        lab,dx,dy=aoff.get(r["short"],(r["short"][:10],5,5))
+        a1.annotate(lab,(r["n_loc"],r["sigma"]),fontsize=7.8,color=INK,xytext=(dx,dy),textcoords="offset points")
+    a1.set_xscale("log"); a1.set_xlabel("运营商规模 n（充电点数，对数轴）",fontsize=10)
+    a1.set_ylabel("一致性比噪声 σ_op（越大越难检）",fontsize=10)
+    a1.set_title("(a) 碎片化⇒各运营商检测难度不同\n小运营商样本少、信号更噪",fontsize=10.8,fontweight="bold",color=NAVY)
+    a1.legend(fontsize=8.5,loc="upper right"); a1.grid(alpha=.25,which="both")
+    # (b) six-algorithm expected-loss comparison, operator by operator
+    a2=fig.add_subplot(gs[0,1])
+    # fixed_tuned == fixed_global here (re-tuning the band per operator cannot rescue the rule),
+    # so only the fixed rule is plotted; the coincidence is noted in the paper text.
+    series=[("shiryaev","贝叶斯最优(本文)",TEAL,"-o",2.4,5),("cusum","CUSUM",PURPLE,"-s",1.6,4),
+            ("iforest","孤立森林(ML)",GREEN,"--^",1.4,4),("ocsvm","单类SVM(ML)","#C9872F","--v",1.4,4),
+            ("fixed_global","固定规则(本文现用)",RED,"-X",1.8,6),("naive","朴素单次阈值",GREY,":.",1.4,4)]
+    for key,lab,col,mk,lw,ms in series:
+        a2.plot(x,[r[key] for r in rows],mk,color=col,lw=lw,ms=ms,label=lab,
+                zorder=(6 if key=="shiryaev" else 3))
+    a2.set_yscale("log"); a2.set_xticks(x); a2.set_xticklabels(short,rotation=32,ha="right",fontsize=8)
+    a2.set_ylabel("期望总损失 c·时延+K·误隔离（越低越好，对数轴）",fontsize=9.6)
+    a2.set_title("(b) 同一组算法在不同真实运营商上的对比\n贝叶斯最优是全体运营商的下包络；单一全局固定阈值在噪声大的小运营商上失控",
+                 fontsize=10.8,fontweight="bold",color=NAVY)
+    a2.legend(fontsize=8,ncol=2,loc="upper right",framealpha=.92); a2.grid(alpha=.25,which="both",axis="y")
+    # (c) the Bayesian controller adapts its caution A* per operator (one global rule cannot)
+    a3=fig.add_subplot(gs[0,2])
+    bars=a3.bar(x,A,color=TEAL,edgecolor=NAVY,lw=.8)
+    for i,r in enumerate(rows): a3.text(i,A[i]+0.015,f"K/c={r['Kc']:.0f}",ha="center",fontsize=7.4,color=MUT)
+    a3.set_xticks(x); a3.set_xticklabels(short,rotation=32,ha="right",fontsize=8)
+    a3.set_ylabel("贝叶斯最优隔离阈值 A*_op（逐运营商求解）",fontsize=9.6); a3.set_ylim(0,min(1.0,A.max()+0.12))
+    a3.set_title("(c) 最优控制器随运营商自适应谨慎度\n客户多/单点功率小⇒更谨慎(A*高)；固定规则只有一个阈值",
+                 fontsize=10.8,fontweight="bold",color=NAVY)
+    a3.grid(alpha=.2,axis="y")
+    for ax in (a1,a2,a3):
+        for sp in ax.spines.values(): sp.set_color("#C9D6E2")
+        ax.tick_params(colors=MUT)
+    fl=opres["fleet"]
+    red=100*(1-fl["shiryaev"]/fl["fixed_global"]) if fl["fixed_global"] else 0
+    fig.suptitle(f"图 11　把算法对比放回城市真实碎片化运营商：贝叶斯最优 vs CUSUM / 孤立森林 / 单类SVM / 固定规则 / 朴素"
+                 f"（δ={opres['delta']}；全队平均损失较单一全局固定阈值降 {red:.0f}%）",
+                 color=NAVY,fontsize=12.5,fontweight="bold",y=1.04)
+    fig.savefig(os.path.join(FIGS,"fig_optstop_ops.png"),bbox_inches="tight",facecolor="white"); plt.close(fig); print("[fig] ops")
 
 if __name__=="__main__":
     main()
