@@ -47,5 +47,12 @@
    "jan_mean_E": 1668.7,
    "dec_mean_E": 2457.0
   }
+ },
+ "provenance": {
+  "sigma_robust_benign_ratio": 0.146,
+  "sigma0_used_in_optstop": 0.39,
+  "blackout_count": 146.0,
+  "neighbour_week_mean_count": 285.8,
+  "blackout_session_count_ratio": 0.511
  }
 }

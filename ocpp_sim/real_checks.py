@@ -32,7 +32,8 @@ def load_daily():
     cal = pd.date_range(r["d"].min().normalize(), r["d"].max().normalize(), freq="D").date
     E = eve.groupby("date")["energy_kwh"].sum().reindex(cal, fill_value=0.0)
     C = eve.groupby("date").size().reindex(cal, fill_value=0)
-    return pd.DataFrame({"date": cal, "E_eve": E.values, "n_eve": C.values})
+    Cday = r.groupby("date").size().reindex(cal, fill_value=0)       # whole-day session count
+    return pd.DataFrame({"date": cal, "E_eve": E.values, "n_eve": C.values, "n_day": Cday.values})
 
 def band_flags(ratio):
     return (ratio < BAND_LO) | (ratio > BAND_HI)
@@ -82,6 +83,23 @@ def main():
     fp_static = int((flags_static & benign).sum())
     fpr_static = fp_static / max(n_benign, 1)
 
+    # --- provenance: data-grounded noise estimate (basis for the sigma0 constant) and the blackout session-count ratio ---
+    rj_benign = df["ratio_joint"].values[benign]
+    mad = np.median(np.abs(rj_benign - np.median(rj_benign)))
+    sigma_robust = float(1.4826 * mad)                       # robust std of the benign consistency ratio
+    # blackout session-count ratio: 2025-04-28 evening vs the same weekday in the +/-2 neighbouring weeks
+    bo = df[df["date"].dt.strftime("%Y-%m-%d") == "2025-04-28"]
+    if len(bo):
+        wd = bo["date"].iloc[0].weekday()
+        neigh = df[(df["date"].dt.weekday == wd) & (df["date"] != bo["date"].iloc[0]) &
+                   (abs((df["date"] - bo["date"].iloc[0]).dt.days) <= 14)]
+        bo_n = float(bo["n_day"].iloc[0]); neigh_mean = float(neigh["n_day"].mean())   # whole-day counts
+        count_ratio = round(bo_n / neigh_mean, 3) if neigh_mean else None
+    else:
+        bo_n = neigh_mean = count_ratio = None
+    print(f"[PROV] robust std of benign DAILY consistency ratio = {sigma_robust:.3f} (day-to-day; the per-tick sigma0=0.39 is larger)")
+    print(f"[PROV] blackout 04-28 whole-day session count {bo_n:.0f} vs neighbour-week mean {neigh_mean:.1f} -> ratio {count_ratio}")
+
     res = {"n_days": int(len(df)), "n_benign_days": n_benign, "window": "16-22h",
            "E1": {"fpr_joint_28d": round(fpr_joint, 4), "false_iso_days": fp_joint,
                   "real_data_ARL0_days": round(arl0_days, 1),
@@ -91,7 +109,10 @@ def main():
            "E8": {"fpr_joint_28d_baseline": round(fpr_joint, 4), "fpr_static_annual_mean": round(fpr_static, 4),
                   "ratio": round(fpr_static / max(fpr_joint, 1e-9), 1),
                   "annual_growth_Jan_to_Dec": {"jan_mean_E": round(float(df[df.date.dt.month == 1]["E_eve"].mean()), 1),
-                                               "dec_mean_E": round(float(df[df.date.dt.month == 12]["E_eve"].mean()), 1)}}}
+                                               "dec_mean_E": round(float(df[df.date.dt.month == 12]["E_eve"].mean()), 1)}},
+           "provenance": {"sigma_robust_benign_ratio": round(sigma_robust, 3), "sigma0_used_in_optstop": 0.39,
+                          "blackout_count": bo_n, "neighbour_week_mean_count": round(neigh_mean, 1) if neigh_mean else None,
+                          "blackout_session_count_ratio": count_ratio}}
     print(f"[E1] benign days={n_benign}  false-iso(28d baseline)={fp_joint}  FPR={fpr_joint:.4f}  real ARL0~{arl0_days:.0f} days")
     for a in anom_rows:
         print(f"     {a['date']} {a['label']}: ratio={a['ratio_joint']}  band_exceed={a['band_exceed']}  margin_to_0.5={a['margin_to_0.5']}")
