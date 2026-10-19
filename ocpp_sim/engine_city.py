@@ -38,6 +38,12 @@ DAY="2025-12-05"; W0=16*3600; W1=22*3600; T0=18*3600; STEP=60; MV_EVERY=10*60
 TF=2.2; TARIFF=0.30
 # rated-capacity weights (kW) by DC class for the capacity proxy
 W_DC100=150.0; W_DC=50.0; W_AC=22.0
+# sequential-controller constants (for the Shiryaev/CUSUM in-engine decision modes, calibrated as in optstop.py)
+import math
+DELTA_C=0.5; SIG_C=0.39; RHO_C=1/500.0
+def _llr_c(r,delta=DELTA_C,sigma=SIG_C):
+    """log-likelihood ratio of r under H1=N(1-delta,sigma) vs H0=N(1,sigma)."""
+    return (-0.5*((r-(1.0-delta))/sigma)**2) - (-0.5*((r-1.0)/sigma)**2)
 
 # ----------------------------------------------------------------------------- data
 def _gpkg_geom(b):
@@ -167,9 +173,16 @@ class Charger(CP):
 
 def now_iso(): return datetime.now(timezone.utc).isoformat()
 
-async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attack=T0, rate=30):
+async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attack=T0, rate=30, detector="fused",
+                   curtail_frac=1.0, decision="fixed", astar=None, sync_gate=0):
     """compromised: set/list of operator names whose CSMS backend is owned by the attacker.
-       vector in {curtail, remote_stop, mitm_meter, dos}. defense dict: {rate_limit, isolate}."""
+       vector in {curtail, remote_stop, mitm_meter, dos}. defense dict: {rate_limit, isolate}.
+       detector in {fused, rate, consist}: which detection signal(s) are active (for ablation).
+       curtail_frac in (0,1]: fraction of each controlled load removed (1.0=full blackout, <1=stealthy partial).
+       decision in {fixed, shiryaev, cusum}: isolation trigger rule (fixed heuristic vs sequential controller);
+         astar = per-operator posterior threshold dict (shiryaev) or a scalar statistic threshold (cusum).
+       sync_gate>0: suppress isolation when >=sync_gate backends drop out-of-band in the SAME tick
+         (a network-wide-synchronous drop = benign grid event, e.g. a blackout, not a localised attack)."""
     defense=defense or {}; rng=random.Random(seed); cmap={}
     comp=set(compromised)
     async def handler(ws,*a):
@@ -191,6 +204,8 @@ async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attac
     curtail_start={}; tamper_start={}; aborted=set()
     fan_idx={op:0 for op in comp}; cmd_log={op:[] for op in OPS}; kcons={op:0 for op in OPS}
     t_detect={op:None for op in OPS}; recovery={op:None for op in OPS}; stopped={op:False for op in OPS}
+    post={op:0.0 for op in OPS}; scum={op:0.0 for op in OPS}   # sequential-controller state (shiryaev/cusum)
+    nlow_prev=0                                                 # #backends out-of-band last tick (synchrony gate)
     ctrl_mw_series=[]; obs_series=[]; per_tick=[]
     rl=defense.get("rate_limit")
 
@@ -240,12 +255,13 @@ async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attac
                 op=LOC_OP[loc]; rec=recovery[op]
                 cut=loc in curtail_start and (rec is None or T<rec)
                 tmp=loc in tamper_start and (rec is None or T<rec)
-                p=0.0 if cut else loc_power(loc,T)*(TF if tmp else 1.0)
+                p=loc_power(loc,T)*(1.0-curtail_frac) if cut else loc_power(loc,T)*(TF if tmp else 1.0)
                 calls.append(send(loc,call.MeterValues(connector_id=1,meter_value=[{"timestamp":now_iso(),"sampled_value":[{"value":str(round(p,1)),"measurand":"Power.Active.Import"}]}])))
         if calls: await asyncio.gather(*calls,return_exceptions=True)
 
         # observed power + controlled power + per-operator detector
-        ctrl=0.0; obs=0.0; aff_now=0
+        ctrl=0.0; obs=0.0; aff_now=0; nlow=0
+        sync=(sync_gate>0 and nlow_prev>=sync_gate)            # last tick was a network-wide synchronous drop -> grid event
         for op in OPS:
             rec=recovery[op]; active_atk=(rec is None or T<rec)
             exp_op=0.0; obs_op=0.0; ctrl_op=0.0
@@ -253,22 +269,36 @@ async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attac
                 base=loc_power(loc,T); exp_op+=base
                 cut=loc in curtail_start and active_atk
                 tmp=loc in tamper_start and active_atk
-                delivered=0.0 if cut else base
-                reported=0.0 if cut else (base*TF if tmp else base)
+                reported=base*(1.0-curtail_frac) if cut else (base*TF if tmp else base)
                 obs_op+=reported
-                if (cut or (loc in curtail_start)) and active_atk: ctrl_op+=base
+                if (cut or (loc in curtail_start)) and active_atk: ctrl_op+=base*curtail_frac
             obs+=obs_op; ctrl+=ctrl_op
+            if exp_op>5 and obs_op<0.5*exp_op: nlow+=1          # out-of-band (low) this tick, for the synchrony gate
             if active_atk: aff_now+=sum(1 for loc in OP_LOCS[op] if (loc in curtail_start or loc in tamper_start))
             # detector (per operator backend)
             rate_cnt=sum(1 for c in cmd_log[op] if T-120<=c<=T)
             alarm=False
-            if rate_cnt>=5: alarm=True
-            if exp_op>5 and (obs_op<0.5*exp_op or obs_op>1.5*exp_op): kcons[op]+=1
-            else: kcons[op]=0
-            if kcons[op]>=2: alarm=True
-            if alarm and t_detect[op] is None and op in comp and T>=t0_attack:
+            if decision=="fixed":
+                if detector in ("rate","fused") and rate_cnt>=5: alarm=True
+                if exp_op>5 and (obs_op<0.5*exp_op or obs_op>1.5*exp_op): kcons[op]+=1
+                else: kcons[op]=0
+                if detector in ("consist","fused") and kcons[op]>=2: alarm=True
+            else:
+                # sequential controller on the consistency ratio r=obs/exp (optstop.py brought inside the engine)
+                r_t=(obs_op/exp_op) if exp_op>5 else 1.0
+                llr=_llr_c(r_t)
+                if decision=="shiryaev":
+                    pre=post[op]+RHO_C*(1-post[op]); L=math.exp(min(llr,50.0)); num=pre*L
+                    den=num+(1-RHO_C)*(1-post[op]); post[op]=num/max(den,1e-300)
+                    A=(astar.get(op,0.9) if isinstance(astar,dict) else (astar if astar is not None else 0.9))
+                    if post[op]>=A: alarm=True
+                elif decision=="cusum":
+                    scum[op]=max(0.0,scum[op]+llr)
+                    if scum[op]>=(astar if astar is not None else 6.0): alarm=True
+            if alarm and (not sync) and t_detect[op] is None and op in comp and T>=t0_attack:
                 t_detect[op]=T
                 if defense.get("isolate"): recovery[op]=T+60; stopped[op]=True
+        nlow_prev=nlow
         ctrl_mw_series.append((T,round(ctrl/1000,3))); obs_series.append((T,round(obs/1000,3)))
         per_tick.append((T,aff_now))
 
@@ -281,7 +311,7 @@ async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attac
         cs=curtail_start.get(s["site"])
         if cs is not None:
             ov=max(0,min(s["t1"],W1,rec_of(op))-max(s["t0"],W0,cs))
-            if ov>0: dE+=s["pkw"]*ov/3600.0; denied+=1
+            if ov>0: dE+=s["pkw"]*curtail_frac*ov/3600.0; denied+=(1 if curtail_frac>=0.99 else 0)
         ts=tamper_start.get(s["site"])
         if ts is not None:
             ov=max(0,min(s["t1"],W1,rec_of(op))-max(s["t0"],W0,ts))
@@ -292,8 +322,8 @@ async def run_city(compromised, vector="curtail", defense=None, seed=0, t0_attac
         op=LOC_OP[loc]; rec=rec_of(op)
         cs=curtail_start.get(loc); ts=tamper_start.get(loc)
         if cs is not None:
-            e=sum(loc_power(loc,T)*STEP/3600.0 for T in TICKS if cs<=T<rec)
-            if e>0: dE+=e; denied+=1
+            e=sum(loc_power(loc,T)*STEP/3600.0 for T in TICKS if cs<=T<rec)*curtail_frac
+            if e>0: dE+=e; denied+=(1 if curtail_frac>=0.99 else 0)
         if ts is not None:
             e=sum(loc_power(loc,T)*STEP/3600.0 for T in TICKS if ts<=T<rec)
             billing+=e*(TF-1)*TARIFF

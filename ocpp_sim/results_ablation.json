@@ -1,0 +1,172 @@
+{
+ "compromised": [
+  "AMB公共网络",
+  "ENDESA X WAY, S.L.",
+  "IBERDROLA CLIENTES S.A.U"
+ ],
+ "mw": 31.68,
+ "seed": 1,
+ "note": "top-3 backends; detect+isolate unless defense says otherwise",
+ "detector_ablation": [
+  {
+   "vector": "curtail",
+   "fused": {
+    "dE_kwh": 20.9,
+    "billing_eur": 0.0,
+    "n_affected": 90,
+    "denied": 85,
+    "ctrl_mw": 1.253,
+    "tau_d": 0.0
+   },
+   "rate": {
+    "dE_kwh": 20.9,
+    "billing_eur": 0.0,
+    "n_affected": 90,
+    "denied": 85,
+    "ctrl_mw": 1.253,
+    "tau_d": 0.0
+   },
+   "consist": {
+    "dE_kwh": 74.2,
+    "billing_eur": 0.0,
+    "n_affected": 221,
+    "denied": 195,
+    "ctrl_mw": 1.691,
+    "tau_d": 1.67
+   }
+  },
+  {
+   "vector": "remote_stop",
+   "fused": {
+    "dE_kwh": 20.9,
+    "billing_eur": 0.0,
+    "n_affected": 90,
+    "denied": 85,
+    "ctrl_mw": 1.253,
+    "tau_d": 0.0
+   },
+   "rate": {
+    "dE_kwh": 20.9,
+    "billing_eur": 0.0,
+    "n_affected": 90,
+    "denied": 85,
+    "ctrl_mw": 1.253,
+    "tau_d": 0.0
+   },
+   "consist": {
+    "dE_kwh": 74.2,
+    "billing_eur": 0.0,
+    "n_affected": 221,
+    "denied": 195,
+    "ctrl_mw": 1.691,
+    "tau_d": 1.67
+   }
+  },
+  {
+   "vector": "mitm_meter",
+   "fused": {
+    "dE_kwh": 0.0,
+    "billing_eur": 26.7,
+    "n_affected": 221,
+    "denied": 0,
+    "ctrl_mw": 0.0,
+    "tau_d": 1.67
+   },
+   "rate": {
+    "dE_kwh": 0.0,
+    "billing_eur": 2937.3,
+    "n_affected": 249,
+    "denied": 0,
+    "ctrl_mw": 0.0,
+    "tau_d": null
+   },
+   "consist": {
+    "dE_kwh": 0.0,
+    "billing_eur": 26.7,
+    "n_affected": 221,
+    "denied": 0,
+    "ctrl_mw": 0.0,
+    "tau_d": 1.67
+   }
+  },
+  {
+   "vector": "dos",
+   "fused": {
+    "dE_kwh": 20.9,
+    "billing_eur": 0.0,
+    "n_affected": 90,
+    "denied": 85,
+    "ctrl_mw": 1.253,
+    "tau_d": 0.0
+   },
+   "rate": {
+    "dE_kwh": 20.9,
+    "billing_eur": 0.0,
+    "n_affected": 90,
+    "denied": 85,
+    "ctrl_mw": 1.253,
+    "tau_d": 0.0
+   },
+   "consist": {
+    "dE_kwh": 74.2,
+    "billing_eur": 0.0,
+    "n_affected": 221,
+    "denied": 195,
+    "ctrl_mw": 1.691,
+    "tau_d": 1.67
+   }
+  }
+ ],
+ "defense_ablation": [
+  {
+   "config": "D0 无防御",
+   "dE_kwh": 8159.1,
+   "n_affected": 249,
+   "denied": 347,
+   "ctrl_mw": 3.614,
+   "tau_d": 0.0,
+   "detected": true,
+   "isolated": false
+  },
+  {
+   "config": "D2 仅限速",
+   "dE_kwh": 7548.2,
+   "n_affected": 249,
+   "denied": 343,
+   "ctrl_mw": 3.066,
+   "tau_d": 1.0,
+   "detected": true,
+   "isolated": false
+  },
+  {
+   "config": "D5 仅检测",
+   "dE_kwh": 8159.1,
+   "n_affected": 249,
+   "denied": 347,
+   "ctrl_mw": 3.614,
+   "tau_d": 0.0,
+   "detected": true,
+   "isolated": false
+  },
+  {
+   "config": "D3 仅隔离",
+   "dE_kwh": 20.9,
+   "n_affected": 90,
+   "denied": 85,
+   "ctrl_mw": 1.253,
+   "tau_d": 0.0,
+   "detected": true,
+   "isolated": true
+  },
+  {
+   "config": "D2+D3 限速+隔离",
+   "dE_kwh": 8.1,
+   "n_affected": 18,
+   "denied": 20,
+   "ctrl_mw": 0.257,
+   "tau_d": 1.0,
+   "detected": true,
+   "isolated": true
+  }
+ ]
+}

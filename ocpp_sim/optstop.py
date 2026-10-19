@@ -50,6 +50,17 @@ def cusum(r,delta,sigma0=SIGMA0):
     for t in range(T):
         s=np.maximum(0.0,s+llr[:,t]); S[:,t]=s
     return S
+def shiryaev_roberts(r,delta,sigma0=SIGMA0):
+    """Shiryaev-Roberts statistic R_t=(1+R_{t-1})*L_t (improper flat prior = rho->0 Shiryaev).
+       Ablates the geometric hazard PRIOR out of the Bayesian posterior rule."""
+    L=np.exp(_lpdf(r,1.0-delta,sigma0)-_lpdf(r,1.0,sigma0))
+    N,T=r.shape; R=np.empty((N,T)); prev=np.zeros(N)
+    for t in range(T):
+        prev=(1.0+prev)*L[:,t]; R[:,t]=prev
+    return R
+def raw_llr(r,delta,sigma0=SIGMA0):
+    """Memoryless per-sample log-likelihood ratio (ablates ACCUMULATION entirely)."""
+    return _lpdf(r,1.0-delta,sigma0)-_lpdf(r,1.0,sigma0)
 def tau_threshold(stat,thr):
     """first t with stat>=thr, per stream; T if none. stat:[N,T]."""
     rm=np.maximum.accumulate(stat,axis=1); hit=rm>=thr
@@ -64,6 +75,22 @@ def tau_fixed(r,band=0.5,m=2):
     return tau
 def tau_naive(r,band=0.5):
     hit=r<band; T=r.shape[1]; return np.where(hit.any(1),hit.argmax(1),T)
+def ewma(r,lam=0.25):
+    """classic EWMA control chart. z_t=lam*r+(1-lam)z_{t-1}; statistic 1-z rises as the mean drops."""
+    N,T=r.shape; S=np.empty((N,T)); prev=np.ones(N)
+    for t in range(T):
+        prev=lam*r[:,t]+(1-lam)*prev; S[:,t]=1.0-prev
+    return S
+def glr(r,sigma0=SIGMA0,W=24):
+    """windowed generalized likelihood ratio for a one-sided mean DROP (unknown magnitude, known sigma0).
+       G_t = max_{1<=L<=W} [ max(0, -sum_{last L}(r-1))^2 / (2 sigma0^2 L) ]  (Lorden/Page GLR, windowed)."""
+    N,T=r.shape; P=np.concatenate([np.zeros((N,1)),np.cumsum(r-1.0,axis=1)],axis=1)  # P[:,t]=sum_{i<t}(r_i-1)
+    G=np.zeros((N,T))
+    for L in range(1,W+1):
+        s=P[:,L:T+1]-P[:,0:T-L+1]                       # window sums ending at t for t>=L-1
+        drop=np.maximum(0.0,-s); stat=drop*drop/(2*sigma0*sigma0*L)
+        G[:,L-1:T]=np.maximum(G[:,L-1:T],stat)
+    return G
 
 # ---- learned (ML) one-class baselines on a sliding feature window ----
 from sklearn.ensemble import IsolationForest
@@ -182,16 +209,110 @@ def per_operator_study(delta=0.5):
         L_nv=min(loss_rule(tau_naive(r,b),nu,1.0,Kc)[0] for b in bands)
         L_if=ml_loss(ml_fit_s(IsolationForest(n_estimators=100,random_state=1),sg),r[:1500],nu[:1500],Kc)
         L_oc=ml_loss(ml_fit_s(OneClassSVM(nu=0.05,gamma="scale"),sg),r[:1500],nu[:1500],Kc)
+        ew_thr=np.linspace(0.03,0.95,24); gl_thr=np.linspace(0.8,45,24)
+        L_ew=float(np.array(loss_threshold(ewma(r,0.25),nu,ew_thr,1.0,Kc))[:,1].min())
+        L_gl=float(np.array(loss_threshold(glr(r,sg,24),nu,gl_thr,1.0,Kc))[:,1].min())
         rows.append({"short":o["short"],"mw":mw,"n_loc":n,"sigma":round(sg,3),"Kc":round(Kc,1),"A":round(A,3),
                      "shiryaev":round(L_shi,3),"cusum":round(L_cus,3),"iforest":round(L_if,3),"ocsvm":round(L_oc,3),
+                     "ewma":round(L_ew,3),"glr":round(L_gl,3),
                      "fixed_tuned":round(L_fixT,3),"fixed_global":round(L_fixG,3),"naive":round(L_nv,3)})
-        print(f"  {o['short'][:16]:16s} n={n:3d} σ={sg:.2f} K/c={Kc:4.1f} A*={A:.2f} | shi={L_shi:5.2f} cus={L_cus:5.2f} iF={L_if:5.2f} oc={L_oc:5.2f} fixT={L_fixT:5.2f} fixG={L_fixG:6.2f} nv={L_nv:6.2f}")
+        print(f"  {o['short'][:16]:16s} n={n:3d} σ={sg:.2f} K/c={Kc:4.1f} A*={A:.2f} | shi={L_shi:5.2f} cus={L_cus:5.2f} iF={L_if:5.2f} oc={L_oc:5.2f} ew={L_ew:5.2f} gl={L_gl:5.2f} fixG={L_fixG:6.2f} nv={L_nv:6.2f}")
     # fleet-wide summary: mean normalised loss per method (fragmentation cost of a non-adaptive rule)
-    meth=["shiryaev","cusum","iforest","ocsvm","fixed_tuned","fixed_global","naive"]
+    meth=["shiryaev","cusum","iforest","ocsvm","ewma","glr","fixed_tuned","fixed_global","naive"]
     fleet={m:round(float(np.mean([x[m] for x in rows])),3) for m in meth}
     print("[OPS] fleet mean loss:",{k:round(v,1) for k,v in fleet.items()})
     return {"delta":delta,"global_band":gb,"kappa":round(kappa,3),"nref":NREF,"sref":round(sref,3),
             "rows":rows,"fleet":fleet}
+
+def design_ablation(delta=0.5,K=30.0,c=1.0):
+    """Ablate the Bayesian-QCD design choices (expected loss, lower=better):
+       (A) prior+accumulation: Shiryaev(posterior) vs Shiryaev-Roberts(no prior) vs CUSUM(reset) vs raw-LLR(memoryless)
+       (B) hazard rho misspecification: controller assumes rho0 while the TRUE change hazard varies (vs oracle)
+       (C) sigma0 miscalibration: controller assumes k*sigma0 while data has sigma0 (vs oracle)."""
+    shi_thr=np.concatenate([np.linspace(0.08,0.48,9),np.linspace(0.50,0.9985,24)])
+    sr_thr=np.logspace(np.log10(0.3),np.log10(3000),30); llr_thr=np.linspace(0.0,10,30); cus_thr=np.linspace(0.3,14,30)
+    r,nu=episodes(8000,240,delta)
+    def L(stat,thr): return float(np.array(loss_threshold(stat,nu,thr,c,K))[:,1].min())
+    prior_accum=[
+        {"m":"Shiryaev 后验(本文·含先验)","L":L(shiryaev(r,delta),shi_thr)},
+        {"m":"Shiryaev-Roberts(去先验)","L":L(shiryaev_roberts(r,delta),sr_thr)},
+        {"m":"CUSUM(复位累积)","L":L(cusum(r,delta),cus_thr)},
+        {"m":"原始 LLR(无累积·无记忆)","L":L(raw_llr(r,delta),llr_thr)},
+    ]
+    print("[ABL-A] prior/accum:",{d["m"][:10]:round(d["L"],2) for d in prior_accum})
+    # (B) hazard misspecification: assume RHO, true hazard varies
+    hz=[]
+    for rt in [1/100.0,1/500.0,1/2000.0]:
+        rr,nn=episodes(8000,240,delta,hazard=rt)
+        mis=float(np.array(loss_threshold(shiryaev(rr,delta,rho=RHO),nn,shi_thr,c,K))[:,1].min())   # assumes RHO
+        orc=float(np.array(loss_threshold(shiryaev(rr,delta,rho=rt ),nn,shi_thr,c,K))[:,1].min())   # oracle knows rt
+        hz.append({"rho_true":rt,"assumed_rho":RHO,"loss_assumed":mis,"loss_oracle":orc,
+                   "gap_pct":round(100*(mis-orc)/orc,1) if orc else 0})
+        print(f"[ABL-B] rho_true=1/{round(1/rt)} assumed=1/{round(1/RHO)}  loss {mis:.2f} vs oracle {orc:.2f} (+{hz[-1]['gap_pct']}%)")
+    # (C) sigma0 miscalibration: data sigma0, controller assumes k*sigma0
+    sg=[]
+    for fa in [0.5,1.0,2.0]:
+        rr,nn=episodes(8000,240,delta)                      # true sigma0
+        mis=float(np.array(loss_threshold(shiryaev(rr,delta,sigma0=SIGMA0*fa),nn,shi_thr,c,K))[:,1].min())
+        sg.append({"factor":fa,"assumed_sigma":round(SIGMA0*fa,3),"loss":mis})
+        print(f"[ABL-C] assume sigma={SIGMA0*fa:.3f} (x{fa})  loss {mis:.2f}")
+    orc_s=next(x["loss"] for x in sg if x["factor"]==1.0)
+    for x in sg: x["gap_pct"]=round(100*(x["loss"]-orc_s)/orc_s,1) if orc_s else 0
+    # (D) delta-oracle removal: controller DESIGNED at delta but TRUE attack delta varies; GLR is delta-free
+    gl_thr=np.linspace(0.8,45,30); do=[]
+    for dt in [0.2,0.35,0.5,0.8]:
+        rr,nn=episodes(8000,240,dt)                     # TRUE attack depth dt
+        def _m(stat,thr): return float(np.array(loss_threshold(stat,nn,thr,c,K))[:,1].min())
+        Lmis=_m(shiryaev(rr,delta),shi_thr)             # Shiryaev DESIGNED at delta (mis-specified when dt!=delta)
+        Lcus=_m(cusum(rr,delta),cus_thr)
+        Lorc=_m(shiryaev(rr,dt),shi_thr)                # oracle: designed at the true dt
+        Lglr=_m(glr(rr,SIGMA0,24),gl_thr)               # GLR: needs no delta
+        do.append({"delta_true":dt,"shiryaev_mis":Lmis,"cusum_mis":Lcus,"oracle":Lorc,"glr":Lglr,
+                   "mis_gap_pct":round(100*(Lmis-Lorc)/Lorc,1) if Lorc else 0})
+        print(f"[ABL-D] dt={dt} shi(des{delta})={Lmis:.2f} cus={Lcus:.2f} oracle={Lorc:.2f} GLR={Lglr:.2f} (mis +{do[-1]['mis_gap_pct']}%)")
+    return {"delta":delta,"K":K,"c":c,"prior_accum":prior_accum,"hazard_robust":hz,"sigma_robust":sg,"delta_oracle":do}
+
+def fig_design_abl(dab):
+    fig,axs=plt.subplots(2,2,figsize=(13.2,8.6),facecolor="white")
+    a1,a2,a3,a4=axs[0,0],axs[0,1],axs[1,0],axs[1,1]
+    # (a) prior + accumulation value
+    pa=dab["prior_accum"]; names=[d["m"] for d in pa]; vals=[d["L"] for d in pa]
+    cols=[TEAL,"#1E90B0",PURPLE,RED]; y=np.arange(len(pa))[::-1]
+    a1.barh(y,vals,color=cols,edgecolor=NAVY,lw=.7)
+    for i,v in zip(y,vals): a1.text(v+max(vals)*0.01,i,f"{v:.2f}",va="center",fontsize=9.5,color=INK,fontweight="bold")
+    a1.set_yticks(y); a1.set_yticklabels(names,fontsize=9); a1.set_xlabel("期望总损失（越低越好）",fontsize=10)
+    a1.set_title("(a) 先验与累积的价值：去累积(原始LLR)最差；贝叶斯后验最优",fontsize=10.6,fontweight="bold",color=NAVY)
+    # (b) hazard misspecification robustness
+    hz=dab["hazard_robust"]; x=np.arange(len(hz)); w=.36
+    a2.bar(x-w/2,[h["loss_assumed"] for h in hz],w,color=TEAL,label=f"假设危险率 1/{round(1/hz[0]['assumed_rho'])}")
+    a2.bar(x+w/2,[h["loss_oracle"] for h in hz],w,color=GREEN,label="先知(已知真值)")
+    for i,h in enumerate(hz): a2.text(i,max(h["loss_assumed"],h["loss_oracle"])+0.08,f"+{h['gap_pct']:.0f}%",ha="center",fontsize=9,color=MUT)
+    a2.set_xticks(x); a2.set_xticklabels([f"1/{round(1/h['rho_true'])}" for h in hz],fontsize=9)
+    a2.set_xlabel("真实变点危险率 ρ",fontsize=10); a2.set_ylabel("期望总损失",fontsize=10)
+    a2.set_title("(b) 危险率失配的稳健性：误设先验仅小幅增损(~0%)",fontsize=10.6,fontweight="bold",color=NAVY); a2.legend(fontsize=8.5)
+    # (c) sigma miscalibration
+    sg=dab["sigma_robust"]; x=np.arange(len(sg))
+    barcol=["#C9872F" if s["factor"]!=1.0 else GREEN for s in sg]
+    a3.bar(x,[s["loss"] for s in sg],color=barcol,edgecolor=NAVY,lw=.7)
+    for i,s in enumerate(sg): a3.text(i,s["loss"]+0.4,f"+{s['gap_pct']:.0f}%" if s["factor"]!=1 else "基准",ha="center",fontsize=9,color=MUT)
+    a3.set_xticks(x); a3.set_xticklabels([f"×{s['factor']}\n(σ={s['assumed_sigma']})" for s in sg],fontsize=9)
+    a3.set_xlabel("假设噪声 σ 相对真值",fontsize=10); a3.set_ylabel("期望总损失",fontsize=10)
+    a3.set_title("(c) 噪声标定的(非对称)稳健性：低估σ危险(过灵敏)、高估σ安全",fontsize=10.6,fontweight="bold",color=NAVY)
+    # (d) delta-oracle removal: designed at delta vs true delta, + GLR (delta-free)
+    do=dab.get("delta_oracle",[]); x=np.arange(len(do)); w=.2
+    a4.bar(x-1.5*w,[d["oracle"] for d in do],w,color=GREEN,label="先知(已知真δ)")
+    a4.bar(x-0.5*w,[d["shiryaev_mis"] for d in do],w,color=TEAL,label=f"Shiryaev(设计δ={dab['delta']})")
+    a4.bar(x+0.5*w,[d["cusum_mis"] for d in do],w,color=PURPLE,label=f"CUSUM(设计δ={dab['delta']})")
+    a4.bar(x+1.5*w,[d["glr"] for d in do],w,color="#B5651D",label="GLR(无需δ)")
+    a4.set_xticks(x); a4.set_xticklabels([f"δ真={d['delta_true']}" for d in do],fontsize=9)
+    a4.set_xlabel("真实攻击深度 δ（控制器仍按 δ=0.5 设计）",fontsize=9.5); a4.set_ylabel("期望总损失",fontsize=10)
+    a4.set_title("(d) 去除 δ-先知：设计δ≠真δ 的退化，GLR 无需 δ",fontsize=10.6,fontweight="bold",color=NAVY); a4.legend(fontsize=8,ncol=2)
+    for ax in (a1,a2,a3,a4):
+        for sp in ax.spines.values(): sp.set_color("#C9D6E2")
+        ax.tick_params(colors=MUT); ax.grid(alpha=.2,axis="x" if ax is a1 else "y")
+    fig.suptitle(f"图 14　最优停止的设计消融（δ设计={dab['delta']}，K/c={int(dab['K']/dab['c'])}）：累积不可或缺、对先验/δ稳健、须实测标定 σ₀（低估危险）",
+                 color=NAVY,fontsize=12.5,fontweight="bold",y=1.0)
+    fig.tight_layout(); fig.savefig(os.path.join(FIGS,"fig_ablation_optstop.png"),bbox_inches="tight",facecolor="white"); plt.close(fig); print("[fig] design-ablation")
 
 def main():
     res={"sigma0":SIGMA0,"rho":RHO,"tick_min":TICK_MIN}
@@ -211,6 +332,13 @@ def main():
     res["oc"]["iforest"]={"arl0":ia.tolist(),"add":idd.tolist()}
     res["oc"]["ocsvm"]={"arl0":va.tolist(),"add":vd.tolist()}
     print(f"[ML] IForest ARL0 {ia.min():.0f}-{ia.max():.0f} ADD {idd.min():.1f}-{idd.max():.1f} | OCSVM ADD {vd.min():.1f}-{vd.max():.1f}")
+    # classic external baselines: EWMA control chart + windowed GLR
+    ew_thr=np.linspace(0.03,0.95,26); gl_thr=np.linspace(0.8,45,26)
+    ea,ed=arl0_add(lambda r:ewma(r,0.25),ew_thr,d0)
+    ga,gd=arl0_add(lambda r:glr(r,W=24),gl_thr,d0)
+    res["oc"]["ewma"]={"arl0":ea.tolist(),"add":ed.tolist()}
+    res["oc"]["glr"]={"arl0":ga.tolist(),"add":gd.tolist()}
+    print(f"[EXT] EWMA ARL0 {ea.min():.0f}-{ea.max():.0f} ADD {ed.min():.1f}-{ed.max():.1f} | GLR ADD {gd.min():.1f}-{gd.max():.1f}")
     # application-scenario sweep: cost regime K/c (how costly false isolation is)
     reg=[]
     for Kc in [10,30,100,300]:
@@ -241,11 +369,14 @@ def main():
                      "fix_cost":fx[0],"fix_delay_min":fx[1]*TICK_MIN,"fix_fi":fx[2]})
         print(f"[d={d}] optA={A:.3f} cost={o[1]:.2f}(d {o[2]:.1f}tk,FI {o[3]:.3f}) | fix cost={fx[0]:.2f}(d {fx[1]:.1f}tk,FI {fx[2]:.3f})")
     res["sensitivity"]=sens
-    # per-operator (fragmentation) comparison of all six algorithms
+    # per-operator (fragmentation) comparison of all algorithms
     res["operators"]=per_operator_study(d0)
+    # optimal-stopping design ablation (prior/accumulation, hazard & sigma misspecification)
+    res["design_ablation"]=design_ablation(d0)
     json.dump(res,open(os.path.join(OUT,"results_optstop.json"),"w"),ensure_ascii=False,indent=1); print("[SAVED] results_optstop.json")
     make_figs(res,d0,Astar)
     fig_ops(res["operators"])
+    fig_design_abl(res["design_ablation"])
 
 def make_figs(res,d0,Astar):
     # pick a REPRESENTATIVE episode: fixed rule false-isolates before the attack
@@ -287,11 +418,14 @@ def make_figs(res,d0,Astar):
     if "iforest" in oc:
         ax.plot(oc["iforest"]["arl0"],np.array(oc["iforest"]["add"])*TICK_MIN,"--^",color=GREEN,lw=1.5,ms=4,label="孤立森林（学习型 ML）")
         ax.plot(oc["ocsvm"]["arl0"],np.array(oc["ocsvm"]["add"])*TICK_MIN,"--v",color="#C9872F",lw=1.5,ms=4,label="单类 SVM（学习型 ML）")
+    if "ewma" in oc:
+        ax.plot(oc["ewma"]["arl0"],np.array(oc["ewma"]["add"])*TICK_MIN,"-.P",color="#2E8B8B",lw=1.4,ms=4,label="EWMA 控制图（经典 SPC）")
+        ax.plot(oc["glr"]["arl0"],np.array(oc["glr"]["add"])*TICK_MIN,"-.*",color="#B5651D",lw=1.4,ms=5,label="窗口 GLR（广义似然比）")
     ax.scatter(fr[:,0],fr[:,1],s=75,color=ORANGE,marker="D",zorder=5,label="固定规则 r<带·连续2格（本文现用）")
     ax.scatter(nv[:,0],nv[:,1],s=60,color=RED,marker="X",zorder=5,label="朴素单次阈值")
     ax.set_xscale("log"); ax.set_xlabel("误隔离前平均运行时长 ARL₀ (min，越大越好)",fontsize=10.5)
-    ax.set_ylabel("平均检测时延 ADD (min，越小越好)",fontsize=10.5)
-    ax.set_title(f"图 9　隔离触发器的操作特性·六法对比（隐蔽攻击 δ={oc['delta_oc']}，σ₀={SIGMA0}）\n左下更优：贝叶斯/CUSUM 严格优于学习型 ML 与启发式规则",color=NAVY,fontsize=12,fontweight="bold")
+    ax.set_ylabel("平均检测时延 ADD (min，越小越好)",fontsize=10.5); ax.set_ylim(-0.6,16)
+    ax.set_title(f"图 9　隔离触发器的操作特性·八法对比（隐蔽攻击 δ={oc['delta_oc']}，σ₀={SIGMA0}）\n左下更优：贝叶斯/CUSUM/EWMA/GLR 同处效率前沿，共同显著优于学习型 ML 与启发式规则",color=NAVY,fontsize=12,fontweight="bold")
     ax.legend(fontsize=9,loc="upper right"); ax.grid(alpha=.25,which="both")
     for sp in ax.spines.values(): sp.set_color("#C9D6E2")
     fig.tight_layout(); fig.savefig(os.path.join(FIGS,"fig_optstop_oc.png"),bbox_inches="tight",facecolor="white"); plt.close(fig); print("[fig] oc")

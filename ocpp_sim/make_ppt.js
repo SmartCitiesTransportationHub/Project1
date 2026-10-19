@@ -128,15 +128,15 @@ body(s,[
   {text:"问题：隔离太晚 → 损失累积；误隔离健康后台 → 中断合法充电。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
   {text:"建成贝叶斯快速变点检测：良性 r~N(1,σ₀)、攻击 r~N(1−δ,σ₀)，σ₀=0.39 取自真实数据。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
   {text:"最优规则 = 对后验 pₜ=P(已被攻击) 的阈值 A*（Shiryaev）；A* 最小化 期望损失 c·时延 + K·误隔离。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
-  {text:"六法对比：最优策略严格优于 CUSUM、学习型 ML（孤立森林/单类SVM）与固定规则。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
-  {text:"发现：真实噪声下固定规则误隔离 76%；最优策略降期望损失 84%，越隐蔽、误隔离代价越高优势越大。",options:{bullet:true,bold:true,color:RED,breakLine:true}},
+  {text:"八法对比：最优策略与 CUSUM/EWMA/GLR 同处前沿，共同优于学习型 ML（孤立森林/单类SVM）与固定规则。",options:{bullet:true,breakLine:true,paraSpaceAfter:10}},
+  {text:"发现：真实噪声下固定规则误隔离 76%；最优策略降期望损失 85%，越隐蔽、误隔离代价越高优势越大。",options:{bullet:true,bold:true,color:RED,breakLine:true}},
 ],0.7,1.6,6.05,3.8,13);
 img(s,"fig_optstop_oc.png",7.0,1.6,5.95,1.571);
-const OS=[["−84%","期望损失↓（δ=0.5）",GREEN],["76%→1.4%","误隔离率",RED],["A*≈0.93","最优隔离阈值",NAVY]];
+const OS=[["−85%","期望损失↓（δ=0.5）",GREEN],["76%→1.4%","误隔离率",RED],["A*≈0.93","最优隔离阈值",NAVY]];
 OS.forEach((c,i)=>{const x=0.75+i*4.1; card(s,x,5.7,3.75,1.1,CARD);
   s.addText(c[0],{x,y:5.78,w:3.75,h:0.6,fontSize:23,bold:true,color:c[2],align:"center",fontFace:"Cambria",isTextBox:true,margin:0});
   s.addText(c[1],{x,y:6.36,w:3.75,h:0.35,fontSize:12,color:MUT,align:"center",fontFace:"Calibri",isTextBox:true,margin:0});});
-s.addNotes("算法贡献:把'何时隔离'建成贝叶斯快速变点检测/最优停止,求出最优阈值A*。固定规则真实噪声下误隔离76%;最优策略降期望损失84%。这就是'用算法解决问题',不只是分析。");
+s.addNotes("算法贡献:把'何时隔离'建成贝叶斯快速变点检测/最优停止,求出最优阈值A*。固定规则真实噪声下误隔离76%;最优策略降期望损失85%。这就是'用算法解决问题',不只是分析。");
 
 // ===== S9c algorithm × fragmentation: put the comparison back onto the real operators =====
 s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"算法贡献 · 碎片化",PURPLE); title(s,"同一组算法，放回城市真实的不同运营商");
@@ -147,7 +147,21 @@ const OPS9=[["下包络","贝叶斯最优在全体运营商上损失最低",TEAL
 OPS9.forEach((c,i)=>{const x=0.7+i*4.1; card(s,x,5.65,3.75,1.1,CARD);
   s.addText(c[0],{x,y:5.72,w:3.75,h:0.55,fontSize:(c[0].length>6?18:23),bold:true,color:c[2],align:"center",fontFace:"Cambria",isTextBox:true,margin:0});
   s.addText(c[1],{x:x+0.12,y:6.3,w:3.5,h:0.42,fontSize:11,color:MUT,align:"center",fontFace:"Calibri",isTextBox:true,margin:0});});
-s.addNotes("算法×碎片化:把六法对比放回真实的8家运营商(规模3-138点)逐一标定。噪声随规模(小运营商更噪)、代价比随构成。贝叶斯最优是全体下包络(全队再降73%),且A*随运营商0.08→0.98自适应。固定规则只有一个阈值,在噪声大的小运营商失控。这回应'要用真实不同运营商对比算法',并保留碎片化视角。");
+s.addNotes("算法×碎片化:把八法对比放回真实的8家运营商(规模3-138点)逐一标定。噪声随规模(小运营商更噪)、代价比随构成。贝叶斯最优是全体下包络(全队再降73%),且A*随运营商0.08→0.98自适应。固定规则只有一个阈值,在噪声大的小运营商失控。这回应'要用真实不同运营商对比算法',并保留碎片化视角。");
+
+// ===== S9d ablation + adversarial robustness =====
+s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"消融 · 对抗稳健 · 诚实边界",RED); title(s,"拆开验证每一部分，并直面自适应攻击者");
+const ABL=[["检测两信号互补","仅“指令速率”对篡改电表(无指令)完全失明(残留100%)；物理一致性是无指令/浅度攻击的唯一防线。",TEAL],
+ ["隔离是决定性层","仅检测/仅限速几乎不减损(8159→7548)；加隔离→<1%(20.9)，限速+隔离最小爆炸半径(8.1kWh/18站)。",GREEN],
+ ["碎片化反事实","单一大平台单次攻陷即控全城 8.4 MW/621 站；碎片化下仅 1.9 MW/107 站——爆炸半径约 1/4.5。",PURPLE],
+ ["诚实的检测盲区","极隐蔽攻击(≤1指令/分且浅度 f≤0.5)两信号同时失明；最优停止控制器嵌入真实引擎仍再降 64–84%。",ORANGE]];
+ABL.forEach((v,i)=>{const col=i%2,row=Math.floor(i/2);const x=0.7+col*6.1,y=1.65+row*1.95;
+  card(s,x,y,5.85,1.75,CARD); s.addShape(pres.ShapeType.roundRect,{x,y,w:0.14,h:1.75,fill:{color:v[2]}});
+  s.addText(v[0],{x:x+0.3,y:y+0.16,w:5.4,h:0.5,fontSize:16,bold:true,color:v[2],fontFace:"Cambria",isTextBox:true,margin:0});
+  s.addText(v[1],{x:x+0.3,y:y+0.68,w:5.4,h:1.0,fontSize:12.5,color:INK,fontFace:"Calibri",align:"left",valign:"top",isTextBox:true,margin:0});});
+s.addShape(pres.ShapeType.roundRect,{x:0.7,y:5.75,w:11.95,h:1.0,rectRadius:0.09,fill:{color:"EAF1F8"},line:{color:"BBD0E6",width:1}});
+s.addText([{text:"真实数据安全门：",options:{bold:true,color:NAVY,fontSize:13.5}},{text:"全年良性日误隔离率仅 0.29%；加“同步门”把大停电误隔离 36/39→0，而局部攻击仍 3/3 正确隔离。贝叶斯与 CUSUM 统计上不可区分、同处最优前沿。",options:{color:INK,fontSize:13.5}}],{x:0.95,y:5.75,w:11.5,h:1.0,align:"left",valign:"middle",fontFace:"Calibri",isTextBox:true,margin:0});
+s.addNotes("消融与对抗:检测两信号互补(速率对A1失明)、隔离决定性、碎片化反事实(1/4.5)、诚实盲区(极隐蔽攻击);真实数据安全门FPR0.29%、同步门36→0;贝叶斯vsCUSUM不可区分。回应'缺基线对比/消融'。");
 
 // ===== S10 experiment design matrix =====
 s=pres.addSlide({masterName:"LIGHT"}); kicker(s,"实验设计",TEAL); title(s,"场景矩阵与评价口径");

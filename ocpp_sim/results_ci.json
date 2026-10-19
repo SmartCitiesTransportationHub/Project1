@@ -1,0 +1,103 @@
+{
+ "per_operator": [
+  {
+   "short": "Endesa X Way",
+   "shiryaev": 2.648,
+   "cusum": 2.66,
+   "diff_mean": 0.012,
+   "ci": [
+    -0.029,
+    0.055
+   ],
+   "significant": false
+  },
+  {
+   "short": "Iberdrola",
+   "shiryaev": 3.672,
+   "cusum": 3.677,
+   "diff_mean": 0.005,
+   "ci": [
+    -0.043,
+    0.052
+   ],
+   "significant": false
+  },
+  {
+   "short": "AMB 公共网络",
+   "shiryaev": 3.682,
+   "cusum": 3.72,
+   "diff_mean": 0.038,
+   "ci": [
+    -0.007,
+    0.084
+   ],
+   "significant": false
+  },
+  {
+   "short": "BSM-Endolla",
+   "shiryaev": 2.382,
+   "cusum": 2.347,
+   "diff_mean": -0.035,
+   "ci": [
+    -0.105,
+    0.031
+   ],
+   "significant": false
+  },
+  {
+   "short": "Repsol",
+   "shiryaev": 4.338,
+   "cusum": 4.361,
+   "diff_mean": 0.023,
+   "ci": [
+    -0.076,
+    0.115
+   ],
+   "significant": false
+  },
+  {
+   "short": "CHARG-ELECTRA SP",
+   "shiryaev": 3.526,
+   "cusum": 2.986,
+   "diff_mean": -0.539,
+   "ci": [
+    -0.599,
+    -0.482
+   ],
+   "significant": true
+  },
+  {
+   "short": "CHARGING TOGETHE",
+   "shiryaev": 8.877,
+   "cusum": 9.024,
+   "diff_mean": 0.147,
+   "ci": [
+    0.041,
+    0.25
+   ],
+   "significant": true
+  },
+  {
+   "short": "Etecnic",
+   "shiryaev": 6.299,
+   "cusum": 6.405,
+   "diff_mean": 0.105,
+   "ci": [
+    0.012,
+    0.205
+   ],
+   "significant": true
+  }
+ ],
+ "fleet": {
+  "diff_mean": -0.03,
+  "ci": [
+   -0.055,
+   -0.004
+  ],
+  "significant": true
+ },
+ "n_sig": 3,
+ "n_op": 8,
+ "B": 3000
+}

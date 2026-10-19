@@ -1,0 +1,215 @@
+{
+ "compromised_top3": [
+  "AMB公共网络",
+  "ENDESA X WAY, S.L.",
+  "IBERDROLA CLIENTES S.A.U"
+ ],
+ "seed": 1,
+ "astar": 0.9,
+ "cusum_thr": 6.0,
+ "e2_monolithic": {
+  "fragmented_single_max": {
+   "op": "ENDESA X WAY, S.L.",
+   "mw": 12.336,
+   "d0_dE": 3927.8,
+   "d0_aff": 107,
+   "d0_ctrlMW": 1.877,
+   "iso_dE": 6.6,
+   "iso_aff": 30
+  },
+  "monolithic": {
+   "mw": 73.06,
+   "d0_dE": 17738.4,
+   "d0_aff": 621,
+   "d0_ctrlMW": 8.386,
+   "iso_dE": 9.7,
+   "iso_aff": 30
+  }
+ },
+ "e3_stealth": [
+  {
+   "f": 1.0,
+   "rate": 30,
+   "dE_kwh": 20.9,
+   "n_affected": 90,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 1.0,
+   "rate": 5,
+   "dE_kwh": 6.7,
+   "n_affected": 15,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 1.0,
+   "rate": 2,
+   "dE_kwh": 11.7,
+   "n_affected": 18,
+   "detected": true,
+   "tau_d": 2.0
+  },
+  {
+   "f": 1.0,
+   "rate": 1,
+   "dE_kwh": 502.1,
+   "n_affected": 117,
+   "detected": true,
+   "tau_d": 38.0
+  },
+  {
+   "f": 0.5,
+   "rate": 30,
+   "dE_kwh": 10.4,
+   "n_affected": 90,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 0.5,
+   "rate": 5,
+   "dE_kwh": 3.4,
+   "n_affected": 15,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 0.5,
+   "rate": 2,
+   "dE_kwh": 5.8,
+   "n_affected": 18,
+   "detected": true,
+   "tau_d": 2.0
+  },
+  {
+   "f": 0.5,
+   "rate": 1,
+   "dE_kwh": 3243.2,
+   "n_affected": 249,
+   "detected": false,
+   "tau_d": null
+  },
+  {
+   "f": 0.3,
+   "rate": 30,
+   "dE_kwh": 6.3,
+   "n_affected": 90,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 0.3,
+   "rate": 5,
+   "dE_kwh": 2.0,
+   "n_affected": 15,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 0.3,
+   "rate": 2,
+   "dE_kwh": 3.5,
+   "n_affected": 18,
+   "detected": true,
+   "tau_d": 2.0
+  },
+  {
+   "f": 0.3,
+   "rate": 1,
+   "dE_kwh": 1945.9,
+   "n_affected": 249,
+   "detected": false,
+   "tau_d": null
+  },
+  {
+   "f": 0.15,
+   "rate": 30,
+   "dE_kwh": 3.1,
+   "n_affected": 90,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 0.15,
+   "rate": 5,
+   "dE_kwh": 1.0,
+   "n_affected": 15,
+   "detected": true,
+   "tau_d": 0.0
+  },
+  {
+   "f": 0.15,
+   "rate": 2,
+   "dE_kwh": 1.7,
+   "n_affected": 18,
+   "detected": true,
+   "tau_d": 2.0
+  },
+  {
+   "f": 0.15,
+   "rate": 1,
+   "dE_kwh": 973.0,
+   "n_affected": 249,
+   "detected": false,
+   "tau_d": null
+  }
+ ],
+ "e5_controller": [
+  {
+   "f": 1.0,
+   "fixed_dE": 502.1,
+   "shiryaev_dE": 425.2,
+   "cusum_dE": 425.2,
+   "fixed_det": true,
+   "shiryaev_det": true,
+   "cusum_det": true,
+   "shi_reduction_pct": 15.3
+  },
+  {
+   "f": 0.5,
+   "fixed_dE": 3243.2,
+   "shiryaev_dE": 525.0,
+   "cusum_dE": 533.1,
+   "fixed_det": false,
+   "shiryaev_det": true,
+   "cusum_det": true,
+   "shi_reduction_pct": 83.8
+  },
+  {
+   "f": 0.3,
+   "fixed_dE": 1945.9,
+   "shiryaev_dE": 697.3,
+   "cusum_dE": 730.1,
+   "fixed_det": false,
+   "shiryaev_det": true,
+   "cusum_det": true,
+   "shi_reduction_pct": 64.2
+  },
+  {
+   "f": 0.15,
+   "fixed_dE": 973.0,
+   "shiryaev_dE": 973.0,
+   "cusum_dE": 973.0,
+   "fixed_det": false,
+   "shiryaev_det": false,
+   "cusum_det": false,
+   "shi_reduction_pct": 0.0
+  }
+ ],
+ "e1_synchrony_gate": {
+  "gate0": {
+   "blackout_false_isolations": 36,
+   "n_ops": 39,
+   "attack_isolations": 3,
+   "attack_dE": 74.2
+  },
+  "gate10": {
+   "blackout_false_isolations": 0,
+   "n_ops": 39,
+   "attack_isolations": 3,
+   "attack_dE": 74.2
+  }
+ }
+}

@@ -1,0 +1,51 @@
+{
+ "n_days": 365,
+ "n_benign_days": 348,
+ "window": "16-22h",
+ "E1": {
+  "fpr_joint_28d": 0.0029,
+  "false_iso_days": 1,
+  "real_data_ARL0_days": 348.0,
+  "anomaly_days": [
+   {
+    "date": "2025-04-28",
+    "label": "伊比利亚大停电",
+    "ratio_joint": 0.287,
+    "E_eve": 458.3,
+    "band_exceed": true,
+    "margin_to_0.5": -0.213
+   },
+   {
+    "date": "2025-11-30",
+    "label": "全网零记录缺口",
+    "ratio_joint": 0.74,
+    "E_eve": 1950.4,
+    "band_exceed": false,
+    "margin_to_0.5": 0.24
+   },
+   {
+    "date": "2025-12-11",
+    "label": "全网零记录缺口",
+    "ratio_joint": 0.891,
+    "E_eve": 2285.9,
+    "band_exceed": false,
+    "margin_to_0.5": 0.391
+   }
+  ],
+  "migration_churn": {
+   "days": 59,
+   "mean_ratio": 0.993,
+   "frac_in_band": 1.0
+  },
+  "note": "zero-record gap days drive r->0 (look like a curtail attack to the consistency signal); the deployed detector suppresses this via the command-absence AND-gate / data-availability, not a power test"
+ },
+ "E8": {
+  "fpr_joint_28d_baseline": 0.0029,
+  "fpr_static_annual_mean": 0.0259,
+  "ratio": 9.0,
+  "annual_growth_Jan_to_Dec": {
+   "jan_mean_E": 1668.7,
+   "dec_mean_E": 2457.0
+  }
+ }
+}
